@@ -1,22 +1,19 @@
 const WINDOW_SIZE = 3;
 
-function readInput(stream, handler) {
+function readInputInWindows(stream, handler, callback) {
   let currentWindow = [];
+  let prevLine = "";
 
-  return new Promise((resolve) => {
-    let prevLine = "";
+  stream.on("data", (chunk) => {
+    const lines = chunk.toString().split("\n");
+    lines[0] = prevLine + lines[0];
+    prevLine = lines.pop();
+    lines.forEach(processLine);
+  });
 
-    stream.on("data", (chunk) => {
-      const lines = chunk.toString().split("\n");
-      lines[0] = prevLine + lines[0];
-      prevLine = lines.pop();
-      lines.forEach(processLine);
-    });
-
-    stream.on("close", () => {
-      processLine(prevLine);
-      resolve();
-    });
+  stream.on("end", () => {
+    processLine(prevLine);
+    callback();
   });
 
   function processLine(line) {
@@ -35,23 +32,29 @@ function readInput(stream, handler) {
 let increases = 0;
 let prevSum;
 
-readInput(process.stdin, (win) => {
-  const sum = win.reduce((prev, val) => prev + val, 0);
-  const didIncrease = prevSum != null && sum > prevSum;
+process.stdin.resume();
+process.stdin.setEncoding("utf8");
 
-  increases += didIncrease ? 1 : 0;
+readInputInWindows(
+  process.stdin,
+  (win) => {
+    const sum = win.reduce((prev, val) => prev + val, 0);
+    const didIncrease = prevSum != null && sum > prevSum;
+    const didDecrease = prevSum != null && sum < prevSum;
 
-  console.log(
-    "%s = %d (%s)",
-    win.join(" + "),
-    sum,
-    didIncrease ? "increase" : "decrease"
-  );
+    if (didIncrease) {
+      increases++;
+      console.log("%s = %d (%s)", win.join(" + "), sum, "increase");
+    } else if (didDecrease) {
+      console.log("%s = %d (%s)", win.join(" + "), sum, "decrease");
+    }
 
-  prevSum = sum;
-}).then(() => {
-  console.log("\n\n\n%d increases", increases);
-});
+    prevSum = sum;
+  },
+  () => {
+    console.log("\n\n\n%d increases", increases);
+  }
+);
 
 function processLine(line) {
   const value = parseInt(line, 10);
