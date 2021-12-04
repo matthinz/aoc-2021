@@ -8,6 +8,8 @@ import (
 	"strconv"
 )
 
+const MaxBitLength = 16
+
 func main() {
 
 	numbers := readNumbers(os.Stdin)
@@ -21,9 +23,9 @@ func main() {
 	fmt.Printf("Life support rating: %d\n", o2Rating*co2ScrubberRating)
 }
 
-func FindCo2ScrubberRating(numbers []string) int64 {
+func FindCo2ScrubberRating(numbers []int) int {
 	candidates := numbers
-	pos := 0
+	pos := MaxBitLength
 
 	for {
 		_, leastCommonBit := FindMostAndLeastCommonBits(candidates, pos)
@@ -33,20 +35,16 @@ func FindCo2ScrubberRating(numbers []string) int64 {
 		case 0:
 			panic("Ran out of candidates!")
 		case 1:
-			result, err := strconv.ParseInt(candidates[0], 2, 64)
-			if err != nil {
-				panic(err)
-			}
-			return result
+			return candidates[0]
 		}
 
-		pos++
+		pos--
 	}
 }
 
-func FindO2GeneratorRating(numbers []string) int64 {
+func FindO2GeneratorRating(numbers []int) int {
 	candidates := numbers
-	pos := 0
+	pos := MaxBitLength
 
 	for {
 
@@ -57,24 +55,30 @@ func FindO2GeneratorRating(numbers []string) int64 {
 		case 0:
 			panic("Ran out of candidates!")
 		case 1:
-			result, err := strconv.ParseInt(candidates[0], 2, 64)
-			if err != nil {
-				panic(err)
-			}
-			return result
+			return candidates[0]
 		}
 
-		pos++
+		pos--
 	}
 
 }
 
-func FilterNumbersByBitAtPosition(numbers []string, bit int, pos int) []string {
-	result := make([]string, 0, len(numbers))
+func FilterNumbersByBitAtPosition(numbers []int, bit int, pos int) []int {
+	result := make([]int, 0, len(numbers))
+	mask := 1 << pos
 
 	for _, value := range numbers {
 
-		isMatch := bit == 1 && value[pos] == '1' || bit == 0 && value[pos] == '0'
+		var isMatch bool
+
+		if bit == 0 {
+			// check the bit is _not set_ at the position
+			isMatch = value&mask == 0
+		} else {
+			// check the bit is set at the p
+			isMatch = value&mask != 0
+		}
+
 		if isMatch {
 			result = append(result, value)
 		}
@@ -83,18 +87,26 @@ func FilterNumbersByBitAtPosition(numbers []string, bit int, pos int) []string {
 	return result
 }
 
-func FindMostAndLeastCommonBits(numbers []string, position int) (int, int) {
-	var oneCount int
+func FindMostAndLeastCommonBits(numbers []int, position int) (int, int) {
+
+	mask := 1 << position
+	setCount := 0
 
 	for _, value := range numbers {
-		if value[position] == '1' {
-			oneCount++
+		bitIsSet := value&mask != 0
+		if bitIsSet {
+			setCount++
 		}
+	}
+
+	if setCount == 0 {
+		// no numbers have this bit set, so just ignore
+		return 0, 0
 	}
 
 	half := float64(len(numbers)) / 2.0
 
-	if float64(oneCount) == half {
+	if float64(setCount) == half {
 		// when equally common, we say "1" for most common and "0" for least common
 		return 1, 0
 	}
@@ -102,38 +114,37 @@ func FindMostAndLeastCommonBits(numbers []string, position int) (int, int) {
 	var mostCommon int
 	var leastCommon int
 
-	if float64(oneCount) >= half {
+	if float64(setCount) >= half {
 		// when >= 50% are 1, we call 1 the most common
 		mostCommon = 1
 	}
 
-	if float64(oneCount) < half {
+	if float64(setCount) < half {
 		// when < 50% are 1, we call 1 the least common
 		leastCommon = 1
 	}
 
 	return mostCommon, leastCommon
-
 }
 
-func readNumbers(r io.Reader) []string {
+func readNumbers(r io.Reader) []int {
 	scanner := bufio.NewScanner(os.Stdin)
-	var bitLength int
-	var numbers []string
+	var result []int
 
 	for scanner.Scan() {
-		value := scanner.Text()
-		if len(value) == 0 {
+		token := scanner.Text()
+		if len(token) == 0 {
 			continue
 		}
 
-		if bitLength == 0 {
-			bitLength = len(value)
-		} else if len(value) != bitLength {
-			panic("bad bitLength")
+		value, err := strconv.ParseInt(token, 2, 64)
+
+		if err != nil {
+			panic(err)
 		}
-		numbers = append(numbers, value)
+
+		result = append(result, int(value))
 	}
 
-	return numbers
+	return result
 }

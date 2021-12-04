@@ -17,7 +17,7 @@ func TestParsingWorksHowIThink(t *testing.T) {
 }
 
 func TestFindO2GeneratorRating(t *testing.T) {
-	input := []string{
+	input := parseInput([]string{
 		"00100",
 		"11110",
 		"10110",
@@ -30,16 +30,17 @@ func TestFindO2GeneratorRating(t *testing.T) {
 		"11001",
 		"00010",
 		"01010",
-	}
+	})
+
 	actual := FindO2GeneratorRating(input)
-	expected := int64(23)
+	expected := 23
 	if actual != expected {
-		t.Error(fmt.Sprintf("Got the wrong rating! Expected %d, got %d", expected, actual))
+		t.Error(fmt.Sprintf("Got the wrong rating! Expected %d (%b), got %d (%b)", expected, expected, actual, actual))
 	}
 }
 
 func TestFindCo2ScrubberRating(t *testing.T) {
-	input := []string{
+	input := parseInput([]string{
 		"00100",
 		"11110",
 		"10110",
@@ -52,33 +53,34 @@ func TestFindCo2ScrubberRating(t *testing.T) {
 		"11001",
 		"00010",
 		"01010",
-	}
+	})
+
 	actual := FindCo2ScrubberRating(input)
-	expected := int64(10)
+	expected := 10
 	if actual != expected {
-		t.Error(fmt.Sprintf("Got the wrong rating! Expected %d, got %d", expected, actual))
+		t.Error(fmt.Sprintf("Got the wrong rating! Expected %d (%b), got %d (%b)", expected, expected, actual, actual))
 	}
 }
 
 func TestFindMostAndLeastCommonBits(t *testing.T) {
-	input := []string{
+	input := parseInput([]string{
 		"1001",
 		"1010",
 		"0010",
 		"1111",
-	}
+	})
 
 	expectedMostCommon := []int{
 		1,
-		0,
 		1,
+		0,
 		1,
 	}
 
 	expectedLeastCommon := []int{
 		0,
-		1,
 		0,
+		1,
 		0,
 	}
 
@@ -86,56 +88,71 @@ func TestFindMostAndLeastCommonBits(t *testing.T) {
 		mostCommon, leastCommon := FindMostAndLeastCommonBits(input, i)
 
 		if mostCommon != expectedMostCommon[i] {
-			t.Log(fmt.Sprintf("mostCommon should be %d at position %d", expectedMostCommon[i], i))
-			t.Fail()
+			t.Error(fmt.Sprintf("mostCommon should be %d at position %d", expectedMostCommon[i], i))
 		}
 		if leastCommon != expectedLeastCommon[i] {
-			t.Log(fmt.Sprintf("leastCommon should be %d at position %d", expectedLeastCommon[i], i))
-			t.Fail()
+			t.Error(fmt.Sprintf("leastCommon should be %d at position %d", expectedLeastCommon[i], i))
 		}
 	}
 }
 
 func TestFilter(t *testing.T) {
-	input := []string{
+	input := parseInput([]string{
 		"1001",
 		"1010",
 		"0010",
 		"1111",
-	}
+	})
 
 	actual := FilterNumbersByBitAtPosition(input, 1, 0)
-	expected := []string{
+	expected := parseInput([]string{
 		"1001",
-		"1010",
 		"1111",
-	}
+	})
 
 	assertEqual(t, actual, expected)
 
 	actual = FilterNumbersByBitAtPosition(input, 0, 0)
-	expected = []string{
+	expected = parseInput([]string{
+		"1010",
 		"0010",
-	}
+	})
 	assertEqual(t, actual, expected)
 
 	actual = FilterNumbersByBitAtPosition(input, 0, 3)
-	expected = []string{
+	expected = parseInput([]string{
+		"1001",
 		"1010",
 		"0010",
+	})
+}
+
+func assertEqual(t *testing.T, actual []int, expected []int) {
+
+	if len(actual) != len(expected) {
+		t.Error(actual)
+		return
+	}
+
+	for i := 0; i < len(expected); i++ {
+		if actual[i] != expected[i] {
+			t.Error(fmt.Sprintf("%d: expected %d (%b), got %d (%b)", i, expected[i], expected[i], actual[i], actual[i]))
+			return
+		}
 	}
 
 }
 
-func assertEqual(t *testing.T, actual []string, expected []string) {
+func parseInput(binaryNumbers []string) []int {
+	var result []int
 
-	if len(actual) != len(expected) {
-		t.Error(actual)
-	}
-	for i := 0; i < len(expected); i++ {
-		if actual[i] != expected[i] {
-			t.Error(fmt.Sprintf("%d: expected '%s', got '%s'", i, expected[i], actual[i]))
+	for _, token := range binaryNumbers {
+		value, err := strconv.ParseInt(token, 2, 64)
+		if err != nil {
+			panic(err)
 		}
+		result = append(result, int(value))
 	}
 
+	return result
 }
