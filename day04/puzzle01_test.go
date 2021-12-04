@@ -65,19 +65,19 @@ func TestRunGame(t *testing.T) {
 	solution := game.Run()
 
 	firstWinner := solution[0]
-	if firstWinner.b.index != 3 {
-		fmt.Println(firstWinner.b.String())
+	if firstWinner.index != 3 {
+		fmt.Println(firstWinner.String())
 		t.Error("The wrong board won first")
 	}
 
 	lastWinner := solution[len(solution)-1]
-	if lastWinner.b.index != 2 {
-		fmt.Println(lastWinner.b.String())
+	if lastWinner.index != 2 {
+		fmt.Println(lastWinner.String())
 		t.Error("the wrong board was last to win")
 	}
 
 	if lastWinner.finalScore != 1924 {
-		fmt.Println(lastWinner.b.String())
+		fmt.Println(lastWinner.String())
 		t.Error("the last board had the wrong score")
 	}
 

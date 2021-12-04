@@ -14,18 +14,18 @@ type square struct {
 	marked bool
 }
 
-type Board struct {
+type board struct {
 	index   int
 	squares [][]square
 }
 
 type game struct {
 	numbers []int
-	boards  []Board
+	boards  []board
 }
 
 type solvedBoard struct {
-	b          Board
+	board
 	finalScore int
 }
 
@@ -34,7 +34,7 @@ func main() {
 	solvedBoards := game.Run()
 
 	for _, sb := range solvedBoards {
-		fmt.Printf("Board: %d/%d\nScore:%d\n", sb.b.index, len(solvedBoards), sb.finalScore)
+		fmt.Printf("Board: %d/%d\nScore:%d\n", sb.index, len(solvedBoards), sb.finalScore)
 	}
 }
 
@@ -56,7 +56,7 @@ func (g *game) Run() []solvedBoard {
 				fmt.Printf("%d: %d * %d = %d\n", b.index, b.sumOfUnmarkedSquares(), number, finalScore)
 
 				result = append(result, solvedBoard{
-					b:          *b,
+					board:      *b,
 					finalScore: finalScore,
 				})
 
@@ -69,7 +69,7 @@ func (g *game) Run() []solvedBoard {
 	return result
 }
 
-func (b *Board) String() string {
+func (b *board) String() string {
 	result := strings.Builder{}
 
 	for _, row := range b.squares {
@@ -96,7 +96,7 @@ func (b *Board) String() string {
 
 }
 
-func (b *Board) markNumber(number int) {
+func (b *board) markNumber(number int) {
 	for y := range b.squares {
 		for x := range b.squares[y] {
 			s := &b.squares[y][x]
@@ -107,7 +107,7 @@ func (b *Board) markNumber(number int) {
 	}
 }
 
-func (b *Board) isSolved() bool {
+func (b *board) isSolved() bool {
 	if len(b.squares) == 0 {
 		return false
 	}
@@ -153,7 +153,7 @@ func (b *Board) isSolved() bool {
 	return anyRows || anyCols
 }
 
-func (b *Board) sumOfUnmarkedSquares() int {
+func (b *board) sumOfUnmarkedSquares() int {
 	var result int
 
 	for _, row := range b.squares {
@@ -173,7 +173,7 @@ func NewGame(r io.Reader) game {
 	scanner := bufio.NewScanner(r)
 
 	var g *game
-	var b *Board
+	var b *board
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -193,7 +193,7 @@ func NewGame(r io.Reader) game {
 
 		// subsequent lines of numbers = board
 		if b == nil {
-			g.boards = append(g.boards, Board{
+			g.boards = append(g.boards, board{
 				index: len(g.boards) + 1,
 			})
 			b = &g.boards[len(g.boards)-1]
@@ -228,8 +228,8 @@ func parseRow(input string) []square {
 	return result
 }
 
-func removeBoardAt(boards []Board, index int) []Board {
-	var result []Board
+func removeBoardAt(boards []board, index int) []board {
+	var result []board
 	for i := range boards {
 		if i != index {
 			result = append(result, boards[i])
