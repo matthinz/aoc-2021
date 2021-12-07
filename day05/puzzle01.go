@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"sync"
 )
 
 type point struct {
@@ -93,6 +94,8 @@ func (l *line) isVertical() bool {
 	return l.start.x == l.end.x
 }
 
+// Return a 2-dimensional array where each value is the number of intersections
+// at that poitn
 func CalculateIntersections(lines []line, includeDiagonals bool) [][]int {
 	var candidateLines []line
 
@@ -113,17 +116,25 @@ func CalculateIntersections(lines []line, includeDiagonals bool) [][]int {
 
 	result := make([][]int, height)
 
+	wg := sync.WaitGroup{}
+	wg.Add(height)
+
 	for y := 0; y < height; y++ {
 		result[y] = make([]int, width)
-		for x := 0; x < width; x++ {
-			p := point{x + min.x, y + min.y}
-			for i := range candidateLines {
-				if candidateLines[i].containsPoint(p) {
-					result[y][x]++
+		go func(y int) {
+			for x := 0; x < width; x++ {
+				p := point{x + min.x, y + min.y}
+				for i := range candidateLines {
+					if candidateLines[i].containsPoint(p) {
+						result[y][x]++
+					}
 				}
 			}
-		}
+			wg.Done()
+		}(y)
 	}
+
+	wg.Wait()
 
 	return result
 }
