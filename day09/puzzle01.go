@@ -51,39 +51,6 @@ func findBasins(input [][]int) [][]point {
 		result = append(result, basin)
 	}
 
-	// merge basins
-	var merged [][]point
-	for i := 0; i < len(result); i++ {
-		wasMerged := false
-		for j := i + 1; j < len(result); j++ {
-			if havePointsInCommon(result[i], result[j]) {
-				wasMerged = true
-				merged = append(merged, mergeBasins(result[i], result[j]))
-				break
-			}
-		}
-		if !wasMerged {
-			merged = append(merged, result[i])
-		}
-	}
-
-	return result
-
-}
-
-func mergeBasins(a []point, b []point) []point {
-	result := make([]point, 0, len(a)+len(b))
-
-	for _, p := range a {
-		if !hasPoint(result, p.x, p.y) {
-			result = append(result, p)
-		}
-	}
-	for _, p := range b {
-		if !hasPoint(result, p.x, p.y) {
-			result = append(result, p)
-		}
-	}
 	return result
 }
 
