@@ -158,7 +158,7 @@ func buildStrings(targetLength int, alphabet string, ch chan string, input strin
 		return
 	}
 	for _, c := range alphabet {
-		buildStrings(targetLength, alphabet, ch, input+string(c))
+		buildStrings(targetLength, strings.Replace(alphabet, string(c), "", 1), ch, input+string(c))
 	}
 }
 
