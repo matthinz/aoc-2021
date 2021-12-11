@@ -84,13 +84,17 @@ func step(input [][]int) ([][]int, int) {
 }
 
 func reset(input [][]int) [][]int {
-	for y := 0; y < len(input); y++ {
-		for x := 0; x < len(input[y]); x++ {
+	height := len(input)
+	width := len(input[0])
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
 			if input[y][x] > 9 || input[y][x] == -1 {
 				input[y][x] = 0
 			}
 		}
 	}
+
 	return input
 }
 
