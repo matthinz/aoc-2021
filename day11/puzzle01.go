@@ -111,14 +111,8 @@ func flash(input [][]int) ([][]int, int) {
 	width := len(input[0])
 
 	// make a copy of the input for us to modify
-	// TODO: will go's copy() function work here?
 	result := make([][]int, height)
-	for y := 0; y < height; y++ {
-		result[y] = make([]int, width)
-		for x := 0; x < len(input[y]); x++ {
-			result[y][x] = input[y][x]
-		}
-	}
+	copy(result, input)
 
 	// flash everything in the input that is > 9
 	for y := 0; y < height; y++ {
