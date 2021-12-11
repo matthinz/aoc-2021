@@ -38,12 +38,22 @@ func main() {
 func parseInput(r io.Reader) [][]int {
 	var result [][]int
 	s := bufio.NewScanner(r)
+
+	width := 0
+
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if len(line) == 0 {
 			continue
 		}
-		row := make([]int, len(line))
+		if width == 0 {
+			width = len(line)
+		} else {
+			if len(line) != width {
+				panic("line is the wrong width")
+			}
+		}
+		row := make([]int, width)
 		for i, r := range line {
 			num, err := strconv.ParseInt(string(r), 10, 8)
 			if err != nil {
@@ -53,6 +63,7 @@ func parseInput(r io.Reader) [][]int {
 		}
 		result = append(result, row)
 	}
+
 	return result
 }
 
@@ -103,9 +114,6 @@ func flash(input [][]int) ([][]int, int) {
 	// TODO: will go's copy() function work here?
 	result := make([][]int, height)
 	for y := 0; y < height; y++ {
-		if len(input[y]) != width {
-			panic("row has wrong width")
-		}
 		result[y] = make([]int, width)
 		for x := 0; x < len(input[y]); x++ {
 			result[y][x] = input[y][x]
