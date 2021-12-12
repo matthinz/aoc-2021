@@ -91,39 +91,15 @@ func buildPaths(connections []connection, currentPath []cave, puzzle int) [][]ca
 
 		if s.name == "end" {
 			// we have a completed path
-			if !pathExists(newPath, result) {
-				result = append(result, newPath)
-			}
+			result = append(result, newPath)
 		} else {
 			for _, p := range buildPaths(connections, newPath, puzzle) {
-				if !pathExists(p, result) {
-					result = append(result, p)
-				}
+				result = append(result, p)
 			}
 		}
 	}
 
 	return result
-}
-
-func pathExists(path []cave, paths [][]cave) bool {
-	for _, p := range paths {
-		if len(path) != len(p) {
-			continue
-		}
-
-		same := true
-		for i := 0; i < len(p); i++ {
-			if path[i] != p[i] {
-				same = false
-				break
-			}
-		}
-		if same {
-			return true
-		}
-	}
-	return false
 }
 
 func canVisit(c cave, path []cave, puzzle int) bool {
