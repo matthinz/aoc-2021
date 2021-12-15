@@ -4,13 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
 )
 
-type pair [2]byte
+type pair struct{ left, right byte }
 
 type game struct {
 	initialPairs       []pair
@@ -39,176 +38,67 @@ func main() {
 
 func run(g game, stepCount int) map[rune]int {
 
-	g.startTime = time.Now()
+	pairCounts := make(map[pair]int)
 
-	cache := make(map[pair][]pair)
-	cacheDepth := 0
-	primeCache(&g, &cache, cacheDepth)
-
-	characterCounts := make(map[rune]int)
-	lengths := make(map[int]int)
-
-	estimatedLength := len(g.initialPairs) + 1
-	for i := 0; i < stepCount; i++ {
-		estimatedLength *= 2
-	}
-	fmt.Fprintf(os.Stderr, "Estimated final length after %d steps: %d\n", stepCount, estimatedLength)
-
+	// initialize pair counts
 	for i := range g.initialPairs {
-		p := &g.initialPairs[i]
-
-		runRules(p, &g, stepCount, &characterCounts, &lengths, &cache, cacheDepth)
-
-		isRightMost := i == len(g.initialPairs)-1
-		if isRightMost {
-			right := rune((*p)[1])
-			characterCounts[right]++
-		}
-
-		fmt.Fprintf(os.Stderr, "Pair %s complete\n", p.String())
+		pairCounts[g.initialPairs[i]]++
 	}
 
-	fmt.Println(lengths)
-
-	return characterCounts
-}
-
-func primeCache(g *game, cache *map[pair][]pair, depth int) {
-
-	// first, derive a set of unique letters used
-	uniqueLetters := make(map[rune]bool)
-	for _, p := range g.initialPairs {
-		uniqueLetters[rune(p[0])] = true
-		uniqueLetters[rune(p[1])] = true
-	}
-	for _, rule := range g.pairInsertionRules {
-		uniqueLetters[rune(rule.insert)] = true
-		uniqueLetters[rune(rule.pair[0])] = true
-		uniqueLetters[rune(rule.pair[1])] = true
+	for stepIndex := 0; stepIndex < stepCount; stepIndex++ {
+		pairCounts = tick(&g, pairCounts)
 	}
 
-	// now come up with the full set of combinations
-	for left := range uniqueLetters {
-		for right := range uniqueLetters {
-			p := pair{byte(left), byte(right)}
-			(*cache)[p] = solvePairToDepth(&p, g, depth)
-		}
+	result := make(map[rune]int)
+	for pair, count := range pairCounts {
+		result[rune(pair.left)] += count
 	}
 
-	fmt.Fprintf(os.Stderr, "Cached primed with %d pairs to depth %d\n", len(*cache), depth)
-
-}
-
-func countChars(m map[rune]int) int {
-	var result int
-	for _, ct := range m {
-		result += ct
-	}
-	return result
-}
-
-func solvePairToDepth(p *pair, g *game, depth int) []pair {
-	result := []pair{*p}
-
-	for i := 0; i < depth; i++ {
-		nextLayer := make([]pair, 0, len(result)*2)
-
-		for _, p := range result {
-
-			anyRuleMatched := false
-
-			for _, rule := range g.pairInsertionRules {
-
-				if rule.pair != p {
-					continue
-				}
-
-				anyRuleMatched = true
-
-				left := pair{p[0], rule.insert}
-				right := pair{rule.insert, p[1]}
-
-				nextLayer = append(
-					nextLayer,
-					left,
-					right,
-				)
-
-				break
-
-			}
-
-			if !anyRuleMatched {
-				nextLayer = append(nextLayer, p)
-			}
-
-		}
-
-		result = nextLayer
-	}
+	// Make sure we count the rightmost element of the last pair
+	lastInitialPair := g.initialPairs[len(g.initialPairs)-1]
+	result[rune(lastInitialPair.right)]++
 
 	return result
 }
 
-func runRules(p *pair, g *game, stepCount int, characterCounts *map[rune]int, lengths *map[int]int, cache *map[pair][]pair, cacheDepth int) {
+func tick(g *game, pairCounts map[pair]int) map[pair]int {
+	result := make(map[pair]int, len(pairCounts))
 
-	if rand.Float64() < 0.0000001 {
-		length := countChars(*characterCounts)
-		duration := time.Now().Sub(g.startTime)
+	for p, count := range pairCounts {
 
-		timePerBillion := (duration.Seconds() / float64(length)) * 1000000000
+		ruleApplied := false
 
-		fmt.Fprintf(os.Stderr, "Length: %d (time: %fs / billion)\n", length, timePerBillion)
-	}
+		for _, rule := range g.pairInsertionRules {
 
-	canUseCache := cacheDepth > 0 && stepCount-cacheDepth > 0
-
-	if canUseCache {
-
-		if solution, found := (*cache)[*p]; found {
-			// we have a cached solution for <p> up to a certain number of levels
-			for i := range solution {
-				runRules(&solution[i], g, stepCount-cacheDepth, characterCounts, lengths, cache, cacheDepth)
+			if rule.pair != p {
+				continue
 			}
-			return
+
+			left := pair{p.left, rule.insert}
+			result[left] += count
+
+			right := pair{rule.insert, p.right}
+			result[right] += count
+
+			ruleApplied = true
+			break
+		}
+
+		if !ruleApplied {
+			// when no rule was applied, the pair survives to the next step
+			result[p] += count
 		}
 	}
 
-	if stepCount <= 0 {
-		left := rune((*p)[0])
-		(*characterCounts)[left]++
-		return
-	}
+	return result
 
-	(*lengths)[stepCount]++
-
-	for i := range g.pairInsertionRules {
-		rule := &g.pairInsertionRules[i]
-
-		if rule.pair != *p {
-			continue
-		}
-
-		// this rule now produces two new pairs
-		left := pair{(*p)[0], rule.insert}
-		right := pair{rule.insert, (*p)[1]}
-
-		runRules(&left, g, stepCount-1, characterCounts, lengths, cache, cacheDepth)
-		runRules(&right, g, stepCount-1, characterCounts, lengths, cache, cacheDepth)
-
-		// We assume that only 1 rule will match per pair
-		// that is, there are no duplicate rules
-		return
-	}
-
-	runRules(p, g, stepCount-1, characterCounts, lengths, cache, cacheDepth)
 }
 
 func (p *pair) String() string {
 	return string(
 		[]rune{
-			rune((*p)[0]),
-			rune((*p)[1]),
+			rune((*p).left),
+			rune((*p).right),
 		},
 	)
 }
