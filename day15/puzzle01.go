@@ -6,8 +6,10 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type point struct {
@@ -66,8 +68,7 @@ func solveDijkstra(grid *[][]int) int {
 
 	// toVisit is a list of points, sorted by totalRisk -- from
 	// highest risk to lowest risk
-	toVisitLength := width * height
-	toVisit := make([]point, 0, toVisitLength)
+	toVisit := make([]point, 0, width*height)
 
 	// going in reverse here so that toVisit ends up with
 	// lowest totalRisk at the end
@@ -93,12 +94,19 @@ func solveDijkstra(grid *[][]int) int {
 
 	visited := make([]point, 0, width*height)
 
+	start := time.Now()
+
 	for len(toVisit) > 0 {
 
 		if rand.Float64() < 0.001 {
 			left := len(toVisit)
+			duration := time.Now().Sub(start)
+			processed := (width * height) - left
+			secondsToProcessOne := duration.Seconds() / float64(processed)
+			remainingSeconds := secondsToProcessOne * float64(left)
+
 			if left > 10000 {
-				fmt.Fprintf(os.Stderr, "%d to visit\n", left)
+				fmt.Fprintf(os.Stderr, "%d to visit, %v elapsed, ~%fs remain\n", left, duration, remainingSeconds)
 			}
 		}
 
@@ -137,25 +145,25 @@ func solveDijkstra(grid *[][]int) int {
 			continue
 		}
 
-		// // keep toVisit sorted such that the least risky points are at the end
-		// sort.Slice(toVisit, func(i, j int) bool {
+		// keep toVisit sorted such that the least risky points are at the end
+		sort.Slice(toVisit, func(i, j int) bool {
 
-		// 	if toVisit[i].totalRisk == toVisit[j].totalRisk {
-		// 		return false
-		// 	}
+			if toVisit[i].totalRisk == toVisit[j].totalRisk {
+				return false
+			}
 
-		// 	// unknown risk = sort at the beginning
-		// 	if toVisit[i].totalRisk == unknownRisk {
-		// 		return true
-		// 	}
+			// unknown risk = sort at the beginning
+			if toVisit[i].totalRisk == unknownRisk {
+				return true
+			}
 
-		// 	if toVisit[j].totalRisk == unknownRisk {
-		// 		return false
-		// 	}
+			if toVisit[j].totalRisk == unknownRisk {
+				return false
+			}
 
-		// 	// known risk = the lower the number, the higher it is sorted
-		// 	return toVisit[i].totalRisk > toVisit[j].totalRisk
-		// })
+			// known risk = the lower the number, the higher it is sorted
+			return toVisit[i].totalRisk > toVisit[j].totalRisk
+		})
 	}
 
 	// visited now contains all points, each with the lowest possible risk
