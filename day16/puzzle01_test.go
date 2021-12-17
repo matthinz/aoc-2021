@@ -33,6 +33,43 @@ func TestBitReader(t *testing.T) {
 	if next != 0b10111 {
 		t.Fatalf("Next byte wrong. expected %d, got %d", 0b10111, next)
 	}
+}
+
+func TestBitReaderRead15BitValue(t *testing.T) {
+	data := []byte{
+		0,
+		0,
+		0b0101,
+		0b0011,
+		0b0111,
+		0b0011,
+	}
+	r := newBitReader(data)
+
+	expected := []uint32{
+		0,
+		0,
+		0,
+		5340,
+	}
+
+	sizes := []int{
+		3,
+		3,
+		1,
+		15,
+	}
+
+	for i := 0; i < len(expected); i++ {
+		value, err := r.read32(sizes[i])
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		if value != expected[i] {
+			t.Fatalf("Read #%d failed (%d bits). Expected %d, got %d", i, sizes[i], expected[i], value)
+		}
+
+	}
 
 }
 
@@ -42,17 +79,17 @@ func TestParseLiteralPacket(t *testing.T) {
 	data := parseInput(strings.NewReader(input))
 	p := parseRootPacket(data)
 
-	if p.version != 6 {
-		t.Fatalf("Wrong version. Expected 6, got %d", p.version)
+	if p.Version != 6 {
+		t.Fatalf("Wrong version. Expected 6, got %d", p.Version)
 	}
 
-	if p.typeId != 4 {
-		t.Fatalf("Wrong typeId. Expected 4, got %d", p.typeId)
+	if p.TypeId != 4 {
+		t.Fatalf("Wrong typeId. Expected 4, got %d", p.TypeId)
 	}
 
-	expectedNum := uint32(0b011111100101)
-	if p.literalValue != expectedNum {
-		t.Fatalf("Wrong literal value. Expected %d, got %d", expectedNum, p.literalValue)
+	expectedNum := uint32(2021)
+	if p.LiteralValue != expectedNum {
+		t.Fatalf("Wrong literal value. Expected %d, got %d", expectedNum, p.LiteralValue)
 	}
 
 }
@@ -63,29 +100,104 @@ func TestParseOperatorPacketLengthTypeId0(t *testing.T) {
 	data := parseInput(strings.NewReader(input))
 	p := parseRootPacket(data)
 
-	if p.version != 1 {
-		t.Fatalf("Wrong version. Expected 6, got %d", p.version)
+	if p.Version != 1 {
+		t.Fatalf("Wrong version. Expected 6, got %d", p.Version)
 	}
 
-	if p.typeId != 6 {
-		t.Fatalf("Wrong typeId. Expected 6, got %d", p.typeId)
+	if p.TypeId != 6 {
+		t.Fatalf("Wrong typeId. Expected 6, got %d", p.TypeId)
 	}
 
-	if len(p.subpackets) != 2 {
-		t.Fatalf("Wrong # of subpackets. Expected 2, got %d", len(p.subpackets))
+	if len(p.Subpackets) != 2 {
+		t.Fatalf("Wrong # of subpackets. Expected 2, got %d", len(p.Subpackets))
 	}
 
-	if p.subpackets[0].literalValue != 10 {
-		t.Fatalf("Subpacket 1 has wrong value. Expected %d, got %d", 10, p.subpackets[0].literalValue)
+	expectedVersions := []uint8{
+		0b110,
+		0b010,
+	}
+	expectedTypeIds := []uint8{
+		0b100,
+		0b100,
+	}
+	expectedLiteralValues := []uint32{
+		0b1010,
+		0b00010100,
 	}
 
-	if p.subpackets[1].literalValue != 20 {
-		t.Fatalf("Subpacket 3 has wrong value. Expected %d, got %d", 10, p.subpackets[1].literalValue)
-	}
+	for i := 0; i < 2; i++ {
+		if p.Subpackets[i].Version != expectedVersions[i] {
+			t.Fatalf("Subpacket %d has wrong version. Expected %d, got %d", i, expectedVersions[i], p.Subpackets[i].Version)
+		}
 
+		if p.Subpackets[i].TypeId != expectedTypeIds[i] {
+			t.Fatalf("Subpacket %d has wrong type id. Expected %d, got %d", i, expectedTypeIds[i], p.Subpackets[i].TypeId)
+		}
+
+		if p.Subpackets[i].LiteralValue != expectedLiteralValues[i] {
+			t.Fatalf("Subpacket %d has wrong literal value. Expected %d, got %d", i, expectedLiteralValues[i], p.Subpackets[i].LiteralValue)
+		}
+
+		if len(p.Subpackets[i].Subpackets) != 0 {
+			t.Fatalf("Subpacket %d should not have subpackets. Expected %d, got %d", i, 0, len(p.Subpackets[i].Subpackets))
+		}
+	}
 }
 
-func TestSumVersion(t *testing.T) {
+func TestParseOperatorPacketLengthTypeId1(t *testing.T) {
+
+	input := "EE00D40C823060"
+	data := parseInput(strings.NewReader(input))
+	p := parseRootPacket(data)
+
+	if p.Version != 7 {
+		t.Fatalf("Wrong version. Expected 7, got %d", p.Version)
+	}
+
+	if p.TypeId != 3 {
+		t.Fatalf("Wrong typeId. Expected 3, got %d", p.TypeId)
+	}
+
+	if len(p.Subpackets) != 3 {
+		t.Fatalf("Wrong # of subpackets. Expected 3, got %d", len(p.Subpackets))
+	}
+
+	expectedVersions := []uint8{
+		0b010,
+		0b100,
+		0b001,
+	}
+	expectedTypeIds := []uint8{
+		0b100,
+		0b100,
+		0b100,
+	}
+	expectedLiteralValues := []uint32{
+		0b0001,
+		0b0010,
+		0b0011,
+	}
+
+	for i := 0; i < 3; i++ {
+		if p.Subpackets[i].Version != expectedVersions[i] {
+			t.Fatalf("Subpacket %d has wrong version. Expected %d, got %d", i, expectedVersions[i], p.Subpackets[i].Version)
+		}
+
+		if p.Subpackets[i].TypeId != expectedTypeIds[i] {
+			t.Fatalf("Subpacket %d has wrong type id. Expected %d, got %d", i, expectedTypeIds[i], p.Subpackets[i].TypeId)
+		}
+
+		if p.Subpackets[i].LiteralValue != expectedLiteralValues[i] {
+			t.Fatalf("Subpacket %d has wrong literal value. Expected %d, got %d", i, expectedLiteralValues[i], p.Subpackets[i].LiteralValue)
+		}
+
+		if len(p.Subpackets[i].Subpackets) != 0 {
+			t.Fatalf("Subpacket %d should not have subpackets. Expected %d, got %d", i, 0, len(p.Subpackets[i].Subpackets))
+		}
+	}
+}
+
+func TestSumVersions(t *testing.T) {
 
 	tests := map[string]int{
 		"8A004A801A8002F478":             16,
@@ -97,10 +209,35 @@ func TestSumVersion(t *testing.T) {
 	for input, expected := range tests {
 		data := parseInput(strings.NewReader(input))
 		p := parseRootPacket(data)
-		actual := addVersionNumbers(&p)
+		actual := p.sumVersions()
+		t.Logf("expected: %d, actual: %d", expected, actual)
 		if actual != expected {
 			t.Fatalf("Sum of version numbers is wrong. Expected %d, got %d", expected, actual)
 		}
 	}
 
+}
+
+func TestEvaluate(t *testing.T) {
+	tests := map[string]int{
+		"C200B40A82":                 3,
+		"04005AC33890":               54,
+		"880086C3E88112":             7,
+		"CE00C43D881120":             9,
+		"D8005AC2A8F0":               1,
+		"F600BC2D8F":                 0,
+		"9C005AC2F8F0":               0,
+		"9C0141080250320F1802104A08": 1,
+	}
+
+	for input, expected := range tests {
+
+		data := parseInput(strings.NewReader(input))
+		packet := parseRootPacket(data)
+
+		actual := packet.evaluate()
+		if actual != uint32(expected) {
+			t.Fatalf("Expected %d, got %d", expected, actual)
+		}
+	}
 }

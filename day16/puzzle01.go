@@ -14,13 +14,14 @@ type bitReader struct {
 	data      []byte
 	pos       int
 	bitOffset int
+	debug     bool
 }
 
-type packet struct {
-	version      uint8
-	typeId       uint8
-	literalValue uint32
-	subpackets   []packet
+type Packet struct {
+	Version      uint8
+	TypeId       uint8
+	LiteralValue uint64
+	Subpackets   []Packet
 }
 
 const LiteralPacketTypeId = 4
@@ -31,16 +32,120 @@ func main() {
 
 	packet := parseRootPacket(data)
 
-	fmt.Println(addVersionNumbers(&packet))
+	fmt.Println(packet.sumVersions())
+
+	fmt.Println(packet.evaluate())
 
 }
 
-func addVersionNumbers(p *packet) int {
-	result := int(p.version)
+func printPacket(p *Packet, prefix string) {
 
-	for i := range p.subpackets {
-		subpacket := &p.subpackets[i]
-		result += addVersionNumbers(subpacket)
+	fmt.Printf("%sv: %s (%d)\n", prefix, format4Bits(p.Version), p.Version)
+	fmt.Printf("%st: %s (%d)\n", prefix, format4Bits(p.TypeId), p.TypeId)
+	fmt.Printf("%svsum: %d\n", prefix, p.sumVersions())
+
+	if p.TypeId == 4 {
+		fmt.Printf("%svalue: %d\n", prefix, p.LiteralValue)
+	} else {
+		fmt.Printf("%ssp:\n", prefix)
+		for i := range p.Subpackets {
+			printPacket(&p.Subpackets[i], prefix+"  ")
+		}
+	}
+
+}
+
+func (p *Packet) evaluate() uint64 {
+
+	switch p.TypeId {
+	case 0: // SUM
+
+		var result uint64
+		for _, sp := range p.Subpackets {
+			result += sp.evaluate()
+		}
+		return result
+
+	case 1: // PRODUCT
+
+		result := uint64(1)
+		for _, sp := range p.Subpackets {
+			result *= sp.evaluate()
+		}
+		return result
+
+	case 2: // MINIMUM
+
+		var result *uint64
+		for _, sp := range p.Subpackets {
+			val := sp.evaluate()
+			if result == nil || val < (*result) {
+				result = &val
+			}
+		}
+		return *result
+
+	case 3: // MAXIMUM
+
+		var result *uint64
+		for _, sp := range p.Subpackets {
+			val := sp.evaluate()
+			if result == nil || val > (*result) {
+				result = &val
+			}
+		}
+		return *result
+
+	case 4: // LITERAL
+		return p.LiteralValue
+
+	case 5: // GREATER THAN
+
+		if len(p.Subpackets) != 2 {
+			panic("packet type 5 should always have 2 subpackets")
+		}
+		if p.Subpackets[0].evaluate() > p.Subpackets[1].evaluate() {
+			return 1
+		} else {
+			return 0
+		}
+
+	case 6: // LESS THAN
+
+		if len(p.Subpackets) != 2 {
+			panic("packet type 6 should always have 2 subpackets")
+		}
+		if p.Subpackets[0].evaluate() < p.Subpackets[1].evaluate() {
+			return 1
+		} else {
+			return 0
+		}
+
+	case 7: // EQUAL TO
+
+		if len(p.Subpackets) != 2 {
+			panic("packet type 5 should always have 2 subpackets")
+		}
+		if p.Subpackets[0].evaluate() == p.Subpackets[1].evaluate() {
+			return 1
+		} else {
+			return 0
+		}
+
+	default:
+		panic("invalid packet type!")
+
+	}
+
+}
+
+func (p *Packet) sumVersions() int {
+	var result int
+
+	result += int(p.Version)
+
+	for i := range p.Subpackets {
+		result += p.Subpackets[i].sumVersions()
 	}
 
 	return result
@@ -49,9 +154,10 @@ func addVersionNumbers(p *packet) int {
 ////////////////////////////////////////////////////////////////////////////////
 // parseRootPacket
 
-func parseRootPacket(data []byte) packet {
+func parseRootPacket(data []byte) Packet {
 
 	r := newBitReader(data)
+	r.debug = true
 
 	p, _ := parsePacket(r)
 
@@ -59,7 +165,7 @@ func parseRootPacket(data []byte) packet {
 }
 
 // parses a single packet out of r and returns it along with its bit length
-func parsePacket(r *bitReader) (*packet, int) {
+func parsePacket(r *bitReader) (*Packet, int) {
 
 	version, err := r.read8(3)
 	if err == io.EOF {
@@ -83,40 +189,45 @@ func parsePacket(r *bitReader) (*packet, int) {
 
 }
 
-func parseLiteralPacket(version uint8, typeId uint8, r *bitReader) (packet, int) {
+func parseLiteralPacket(version uint8, typeId uint8, r *bitReader) (Packet, int) {
 	const wordSize = 4
 
-	p := packet{
-		version: version,
-		typeId:  typeId,
+	p := Packet{
+		Version: version,
+		TypeId:  typeId,
 	}
 
 	length := 0
+	hitLastChunk := false
 
 	for i := 0; i < 64/wordSize; i++ {
 		// make room
-		p.literalValue = p.literalValue << wordSize
+		p.LiteralValue = p.LiteralValue << wordSize
 
 		chunk, err := r.read8(5)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			panic(err)
 		}
 		length += 5
 
 		mask := uint8(0b11101111)
-		p.literalValue = p.literalValue | uint32(chunk&mask)
+		p.LiteralValue = p.LiteralValue | uint64(chunk&mask)
 
-		isLastChunk := chunk&mask == chunk
+		hitLastChunk = chunk&mask == chunk
 
-		if isLastChunk {
+		if hitLastChunk {
 			break
 		}
+	}
+
+	if !hitLastChunk {
+		panic("did not find last chunk -- might have a literal > 64 bits")
 	}
 
 	return p, length
 }
 
-func parseOperatorPacket(version uint8, typeId uint8, r *bitReader) (packet, int) {
+func parseOperatorPacket(version uint8, typeId uint8, r *bitReader) (Packet, int) {
 
 	length := 0
 
@@ -127,9 +238,9 @@ func parseOperatorPacket(version uint8, typeId uint8, r *bitReader) (packet, int
 
 	length += 1
 
-	p := packet{
-		version: version,
-		typeId:  typeId,
+	p := Packet{
+		Version: version,
+		TypeId:  typeId,
 	}
 
 	if lengthTypeId == 0 {
@@ -147,7 +258,7 @@ func parseOperatorPacket(version uint8, typeId uint8, r *bitReader) (packet, int
 			subpacket, subpacketLength := parsePacket(r)
 			length += subpacketLength
 			subpacketBitsProcessed += subpacketLength
-			p.subpackets = append(p.subpackets, *subpacket)
+			p.Subpackets = append(p.Subpackets, *subpacket)
 		}
 	} else if lengthTypeId == 1 {
 
@@ -165,7 +276,7 @@ func parseOperatorPacket(version uint8, typeId uint8, r *bitReader) (packet, int
 				panic(fmt.Sprintf("Got nil subpacket when parsing %d / %d", i+1, numberOfSubpackets))
 			}
 			length += subpacketLength
-			p.subpackets = append(p.subpackets, *subpacket)
+			p.Subpackets = append(p.Subpackets, *subpacket)
 		}
 
 	} else {
@@ -180,7 +291,7 @@ func parseOperatorPacket(version uint8, typeId uint8, r *bitReader) (packet, int
 // bitReader implementation
 
 func newBitReader(data []byte) *bitReader {
-	return &bitReader{data, 0, 0}
+	return &bitReader{data, 0, 0, false}
 }
 
 func (b *bitReader) atEnd() bool {
@@ -192,6 +303,7 @@ func (b *bitReader) read8(bits int) (uint8, error) {
 		return 0, fmt.Errorf("read8 received bad number of bits: %d", bits)
 	}
 	value, err := b.read32(bits)
+
 	return uint8(value), err
 }
 
@@ -212,9 +324,9 @@ func (b *bitReader) read32(bits int) (uint32, error) {
 
 	for bitsRead < bits {
 
-		currentByte := byte(0)
+		current := uint32(0)
 		if b.pos < len(b.data) {
-			currentByte = b.data[b.pos]
+			current = uint32(b.data[b.pos])
 		}
 
 		bitsToRead := bits - bitsRead
@@ -224,18 +336,18 @@ func (b *bitReader) read32(bits int) (uint32, error) {
 		}
 
 		// mask off the previously read bits
-		mask := byte(0xFF) >> (8 - wordSize) >> b.bitOffset
-		currentByte = currentByte & mask
+		mask := uint32(0xFF) >> (8 - wordSize) >> b.bitOffset
+		current = current & mask
 
 		// Shift to remove the bits we don't care about
 		bitsLeft := wordSize - (b.bitOffset + bitsToRead)
-		currentByte = currentByte >> byte(bitsLeft)
+		current = current >> byte(bitsLeft)
 
 		// Shift back to make room for any more bits we'll need to set
 		bitsInFutureBytes := bits - (bitsRead + bitsToRead)
-		currentByte = currentByte << byte(bitsInFutureBytes)
+		current = current << byte(bitsInFutureBytes)
 
-		result = result | uint32(currentByte)
+		result = result | current
 
 		bitsRead += bitsToRead
 		b.bitOffset += bitsToRead
@@ -244,6 +356,11 @@ func (b *bitReader) read32(bits int) (uint32, error) {
 			b.pos++
 			b.bitOffset = 0
 		}
+	}
+
+	if b.debug {
+		nice := format32Bits(result)
+		fmt.Fprintf(os.Stderr, "READ %s\n", nice[32-bits:32])
 	}
 
 	if b.pos >= len(b.data) {
@@ -286,6 +403,20 @@ func parseInput(r io.Reader) []uint8 {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+func format4Bits(value uint8) string {
+	b := strings.Builder{}
+
+	for i := 3; i >= 0; i-- {
+		mask := byte(1) << i
+		if value&mask == mask {
+			b.WriteString("1")
+		} else {
+			b.WriteString("0")
+		}
+	}
+	return b.String()
+}
+
 func format8Bits(value uint8) string {
 	b := strings.Builder{}
 
@@ -303,7 +434,7 @@ func format8Bits(value uint8) string {
 func format32Bits(value uint32) string {
 	b := strings.Builder{}
 
-	for i := 32; i >= 0; i-- {
+	for i := 32; i > 0; i-- {
 		mask := uint32(1) << i
 		if value&mask == mask {
 			b.WriteString("1")
