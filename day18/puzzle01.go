@@ -44,12 +44,45 @@ func main() {
 		if num == nil {
 			num = parsed
 		} else {
-			num = add(num, parsed)
+			num = num.add(parsed)
 		}
 	}
 
 	fmt.Println(num.magnitude())
 
+}
+
+// add combines s with other and reduces the result
+// it returns a new snailfishNumber
+func (s *snailfishNumber) add(other *snailfishNumber) *snailfishNumber {
+
+	var left, right *snailfishNumber
+
+	if s != nil {
+		left = s.clone()
+	}
+
+	if other != nil {
+		right = other.clone()
+	}
+
+	result := snailfishNumber{
+		kind:  pairNumberKind,
+		left:  left,
+		right: right,
+	}
+
+	if result.left != nil {
+		result.left.parent = &result
+	}
+
+	if result.right != nil {
+		result.right.parent = &result
+	}
+
+	result.reduce()
+
+	return &result
 }
 
 // clones this number. the clone will not have a parent set
@@ -201,15 +234,32 @@ func (s *snailfishNumber) magnitude() int {
 	}
 }
 
-func (s *snailfishNumber) reduce() {
+func (s *snailfishNumber) checkDepths(expected int) {
+	actual := s.depth()
+	if actual != expected {
+		panic(fmt.Sprintf("Depth for %s is wrong: expected %d, got %d", s.String(), expected, actual))
+	}
+	if s.kind == pairNumberKind {
+		s.left.checkDepths(expected + 1)
+		s.right.checkDepths(expected + 1)
+	}
+}
 
-	fmt.Printf("reducing: %s\n", s.String())
+func (s *snailfishNumber) reduce() {
+	s.reduceWithDebugging(false)
+}
+
+func (s *snailfishNumber) reduceWithDebugging(debug bool) {
+
+	if debug {
+		fmt.Printf("reducing: %s\n", s.String())
+	}
 
 	for {
 
 		leftmostNested := s.findLeftmost(func(n *snailfishNumber) bool {
 
-			fmt.Printf("visit: %s (%d)\n", n.String(), n.depth())
+			// fmt.Printf("visit: %s (%d)\n", n.String(), n.depth())
 
 			if n.kind != pairNumberKind {
 				return false
@@ -224,10 +274,18 @@ func (s *snailfishNumber) reduce() {
 		})
 
 		if leftmostNested != nil {
-			value := leftmostNested.String()
-			before := s.String()
-			leftmostNested.explode()
-			fmt.Printf("reduce(): explode %s %s -> %s\n", value, before, s.String())
+
+			if debug {
+				value := leftmostNested.String()
+				before := s.String()
+
+				leftmostNested.explode()
+
+				fmt.Printf("reduce(): explode %s %s -> %s\n", value, before, s.String())
+			} else {
+				leftmostNested.explode()
+			}
+
 			continue
 		}
 
@@ -236,14 +294,21 @@ func (s *snailfishNumber) reduce() {
 		})
 
 		if leftmost10OrGreater != nil {
-			value := leftmost10OrGreater.value
-			before := s.String()
-			leftmost10OrGreater.split()
-			fmt.Printf("reduce(): split %d %s -> %s\n", value, before, s.String())
+			if debug {
+				value := leftmost10OrGreater.value
+				before := s.String()
+				leftmost10OrGreater.split()
+				fmt.Printf("reduce(): split %d %s -> %s\n", value, before, s.String())
+			} else {
+				leftmost10OrGreater.split()
+			}
 			continue
 		}
 
-		fmt.Printf("reduce(): result %s\n", s.String())
+		if debug {
+			fmt.Printf("reduce(): result %s\n", s.String())
+		}
+
 		return
 	}
 }
@@ -269,27 +334,6 @@ func (s *snailfishNumber) split() {
 	s.value = 0
 	s.left = &left
 	s.right = &right
-}
-
-func add(lhs *snailfishNumber, rhs *snailfishNumber) *snailfishNumber {
-
-	result := snailfishNumber{
-		kind:  pairNumberKind,
-		left:  lhs.clone(),
-		right: lhs.clone(),
-	}
-
-	if result.left != nil {
-		result.left.parent = &result
-	}
-
-	if result.right != nil {
-		result.right.parent = &result
-	}
-
-	result.reduce()
-
-	return &result
 }
 
 func parseSnailfishNumber(input string) (*snailfishNumber, error) {

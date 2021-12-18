@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestExplode(t *testing.T) {
 
@@ -126,8 +129,11 @@ func TestSum(t *testing.T) {
 		if num == nil {
 			num = n
 		} else {
-			num = add(num, n)
+			fmt.Printf("%s + %s\n", num.String(), n.String())
+			num = num.add(n)
 		}
+
+		num.checkDepths(0)
 
 		if num.String() != expected[i] {
 			t.Fatalf("Step %d failed: expected %s, got %s", i, expected[i], num.String())
