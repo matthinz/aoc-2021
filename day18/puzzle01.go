@@ -28,6 +28,7 @@ func main() {
 	s := bufio.NewScanner(os.Stdin)
 
 	var num *snailfishNumber
+	var numbers []snailfishNumber
 
 	for s.Scan() {
 		line := s.Text()
@@ -41,20 +42,41 @@ func main() {
 			panic(err)
 		}
 
+		numbers = append(numbers, *parsed)
+
 		if num == nil {
 			num = parsed
 		} else {
-			num = num.add(parsed)
+			num = num.add(*parsed)
 		}
 	}
 
 	fmt.Println(num.magnitude())
 
+	var largestMagnitude int
+
+	for i := 0; i < len(numbers); i++ {
+		for j := 0; j < len(numbers); j++ {
+			if i == j {
+				continue
+			}
+
+			sum := numbers[i].add(numbers[j])
+			mag := sum.magnitude()
+
+			if mag > largestMagnitude {
+				largestMagnitude = mag
+			}
+		}
+	}
+
+	fmt.Println(largestMagnitude)
+
 }
 
 // add combines s with other and reduces the result
 // it returns a new snailfishNumber
-func (s *snailfishNumber) add(other *snailfishNumber) *snailfishNumber {
+func (s *snailfishNumber) add(other snailfishNumber) *snailfishNumber {
 
 	var left, right *snailfishNumber
 
@@ -62,9 +84,7 @@ func (s *snailfishNumber) add(other *snailfishNumber) *snailfishNumber {
 		left = s.clone()
 	}
 
-	if other != nil {
-		right = other.clone()
-	}
+	right = other.clone()
 
 	result := snailfishNumber{
 		kind:  pairNumberKind,
