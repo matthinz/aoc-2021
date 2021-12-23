@@ -287,6 +287,15 @@ func findBBeaconsInASpace(
 	aRotation, bRotation point,
 ) []point {
 
+	// deltaA/deltaB are vectors that can be *added* to (oriented + rotated)
+	// points in their resepective spaces to convert them into the shared coordinate space
+	deltaA := aBeacon.orient(aOrientation)
+	deltaA = deltaA.multiply(aRotation)
+	deltaA = deltaA.inverse()
+	deltaB := bBeacon.orient(bOrientation)
+	deltaB = bBeacon.multiply(bRotation)
+	deltaB = deltaB.inverse()
+
 	// The process of converting points from <a> into <b>'s spaces is as follows:
 	//
 	// 1. *Orient* the points, by putting their x,y, and z coordinates in the correct order
@@ -298,16 +307,6 @@ func findBBeaconsInASpace(
 	// 7. *Filter* any points that would not be visible from <a>
 	// 8. *Bail* if we did not find enough points to meet the minimum threshold (12)
 
-	// deltaA/deltaB are vectors that can be *added* to (oriented + rotated)
-	// points in their resepective spaces to convert them into the shared coordinate space
-	deltaA := aBeacon.orient(aOrientation)
-	deltaA = deltaA.multiply(aRotation)
-	deltaA = deltaA.inverse()
-	deltaB := bBeacon.orient(bOrientation)
-	deltaB = bBeacon.multiply(bRotation)
-	deltaB = deltaB.inverse()
-
-	// These are the 6 steps outlined above
 	bBeaconsInASpace := orientBeacons(b.beacons, bOrientation)
 	bBeaconsInASpace = rotateBeacons(bBeaconsInASpace, bRotation)
 	bBeaconsInASpace = translateBeacons(bBeaconsInASpace, deltaB)
@@ -379,10 +378,13 @@ func countBeaconsDetected(scanners []scanner) int {
 }
 
 func countUniqueBeaconsDetected(scanners []scanner) int {
-	uniqueBeacons := make(map[point]bool)
+
+	count := 0
 
 	for i := range scanners {
 		scanner := &scanners[i]
+		count += len(scanner.beacons)
+
 		for j := i + 1; j < len(scanners); j++ {
 			otherScanner := &scanners[j]
 			rel := compareScanners(scanner, otherScanner)
@@ -391,13 +393,13 @@ func countUniqueBeaconsDetected(scanners []scanner) int {
 				continue
 			}
 
-			fmt.Printf("%s -> %s (%d)\n", scanner.name, otherScanner.name, len(rel.aBeacons))
+			count -= len(rel.aBeacons)
 
 		}
 
 	}
 
-	return len(uniqueBeacons)
+	return count
 }
 
 ////////////////////////////////////////////////////////////////////////////////
