@@ -16,21 +16,36 @@ type point struct {
 	x, y, z float64
 }
 
+type orientation string
+
+const (
+	UnknownOrientation = ""
+	XyzOrientation     = "xyz"
+	XzyOrientation     = "xzy"
+	YxzOrientation     = "yxz"
+	YzxOrientation     = "yzx"
+	ZxyOrientation     = "zxy"
+	ZyxOrientation     = "zyx"
+)
+
+var NullRotation = point{1, 1, 1}
+
 type scanner struct {
 	name    string
 	beacons []point
+	// orientation used to pick which direction is "up"
+	orientation orientation
+	// rotation vector used to align this scanner to the world
+	rotation point
 }
 
 type scannerRelation struct {
-	a, b scanner
+	a, b *scanner
 	// beacons in <a> that correspond to beacons in <b>
 	aBeacons []point
 
 	// becons in <b> that correspond to beacons in <a>
 	bBeacons []point
-
-	// vector describing how axes are rotated
-	rotationVector point
 }
 
 const MinBeaconsInCommon = 12
@@ -74,6 +89,25 @@ func (p *point) multiply(vector point) point {
 	}
 }
 
+func (p *point) orient(o orientation) point {
+	switch o {
+	case XyzOrientation:
+		return *p
+	case XzyOrientation:
+		return point{p.x, p.z, p.y}
+	case YxzOrientation:
+		return point{p.y, p.x, p.z}
+	case YzxOrientation:
+		return point{p.y, p.z, p.x}
+	case ZxyOrientation:
+		return point{p.z, p.x, p.y}
+	case ZyxOrientation:
+		return point{p.z, p.y, p.x}
+	default:
+		panic(fmt.Sprintf("Invalid orientation: %s", string(o)))
+	}
+}
+
 // returns a new point translated using the given vector
 func (p *point) translate(vector point) point {
 	return point{
@@ -94,9 +128,10 @@ func countBeaconsDetected(scanners []scanner) int {
 func countUniqueBeaconsDetected(scanners []scanner) int {
 	uniqueBeacons := make(map[point]bool)
 
-	for i, scanner := range scanners {
+	for i := range scanners {
+		scanner := &scanners[i]
 		for j := i + 1; j < len(scanners); j++ {
-			otherScanner := scanners[j]
+			otherScanner := &scanners[j]
 			rel := compareScanners(scanner, otherScanner)
 
 			if len(rel.aBeacons) < MinBeaconsInCommon {
@@ -114,86 +149,251 @@ func countUniqueBeaconsDetected(scanners []scanner) int {
 
 // compareScanners takes two scanners and returns a structure describing the
 // relation between each, including which beacons are equivalent
-func compareScanners(a, b scanner) scannerRelation {
+func compareScanners(a, b *scanner) scannerRelation {
 
-	rotationsToTry := make([]point, 0)
-	for _, xRotation := range []float64{-1, 1} {
-		for _, yRotation := range []float64{-1, 1} {
-			for _, zRotation := range []float64{-1, 1} {
-				rotationsToTry = append(rotationsToTry, point{xRotation, yRotation, zRotation})
+	bestResult := [][]point{
+		{},
+		{},
+	}
+	var bestARotation, bestBRotation point
+	var bestAOrientation, bestBOrientation orientation
+
+	tryRotationsAndOrientations(a, func(aRotation point, aOrientation orientation) {
+		tryRotationsAndOrientations(b, func(bRotation point, bOrientation orientation) {
+
+			correspondingBeacons := findOverlap(a, b, aOrientation, bOrientation, aRotation, bRotation)
+
+			if len(correspondingBeacons[0]) > len(bestResult[0]) {
+				bestResult = correspondingBeacons
+				bestAOrientation = aOrientation
+				bestBOrientation = bOrientation
+				bestARotation = aRotation
+				bestBRotation = bRotation
+			}
+
+		})
+
+	})
+
+	if len(bestResult[0]) < MinBeaconsInCommon {
+		// not enough beacons in common == not the same
+		return scannerRelation{
+			a: a,
+			b: b,
+		}
+	}
+
+	a.orientation = bestAOrientation
+	a.rotation = bestARotation
+
+	b.orientation = bestBOrientation
+	b.rotation = bestBRotation
+
+	return scannerRelation{
+		a:        a,
+		b:        b,
+		aBeacons: bestResult[0],
+		bBeacons: bestResult[1],
+	}
+}
+
+// given two scanners, two orientations and two rotations, try to figure out
+// what of each scanner's beacons overlap with each other
+func findOverlap(a, b *scanner, aOrientation, bOrientation orientation, aRotation, bRotation point) [][]point {
+
+	bestResult := [][]point{
+		{},
+		{},
+	}
+
+	for _, aBeacon := range a.beacons {
+
+		aIsSpecial := aOrientation == XyzOrientation && bOrientation == ZxyOrientation &&
+			aRotation == point{-1, 1, -1} && bRotation == point{-1, -1, 1}
+
+		aIsSpecial = aIsSpecial && aBeacon == point{-391, 539, -444}
+
+		// isSpecial := aOrientation == XyzOrientation && bOrientation == XyzOrientation &&
+		// 	aRotation == point{-1, 1, -1} && bRotation == point{-1, 1, -1}
+
+		aBeacon = aBeacon.orient(aOrientation)
+
+		if aIsSpecial {
+			fmt.Printf("oriented aBeacon: %v\n", aBeacon)
+		}
+
+		for _, bBeacon := range b.beacons {
+
+			isSpecial := aIsSpecial && (math.Abs(bBeacon.x) == 660 || math.Abs(bBeacon.y) == 660 || math.Abs(bBeacon.z) == 660)
+
+			if isSpecial {
+				fmt.Println(bBeacon)
+			}
+
+			bBeacon = bBeacon.orient(bOrientation)
+
+			isSpecial = isSpecial && bBeacon == point{-426, -660, -479}
+
+			if isSpecial {
+				fmt.Printf("oriented bBeacon: %v\n", bBeacon)
+			}
+
+			// Here we assume aBeacon == bBeacon. Then we work to prove that this is false.
+
+			// First, project all beacons in <a> and <b> into the coordinate space where
+			// the origin is at <aBeacon> or <bBeacon>.
+
+			// deltaA can be added to points from <a> to convert them into our
+			// "universal" coordinate space
+			deltaA := aBeacon.inverse()
+
+			// deltaB can be added to points from <b> to convert them into our
+			// "universal" coordinate space
+			deltaB := bBeacon.inverse()
+
+			if isSpecial {
+				fmt.Printf("deltaA: %v\ndeltaB: %v\n", deltaA, deltaB)
+			}
+
+			aBeaconsInUniversalSpace := orientBeacons(a.beacons, aOrientation)
+
+			if isSpecial {
+				fmt.Printf("aBeaconsInUniversalSpace (oriented): %v\n", aBeaconsInUniversalSpace)
+			}
+
+			aBeaconsInUniversalSpace = translateBeacons(aBeaconsInUniversalSpace, deltaA)
+			if isSpecial {
+				fmt.Printf("aBeaconsInUniversalSpace (translated): %v\n", aBeaconsInUniversalSpace)
+			}
+
+			aBeaconsInUniversalSpace = rotateBeacons(aBeaconsInUniversalSpace, aRotation)
+
+			if isSpecial {
+				fmt.Printf("aBeaconsInUniversalSpace (rotated): %v\n", aBeaconsInUniversalSpace)
+			}
+
+			aBeaconsInBSpace := translateBeacons(aBeaconsInUniversalSpace, deltaB.inverse())
+			if isSpecial {
+				fmt.Printf("aBeaconsInBSpace (translated): %v\n", aBeaconsInBSpace)
+			}
+
+			aBeaconsInBSpace = filterBeacons(aBeaconsInBSpace, beaconIsVisible)
+
+			if isSpecial {
+				fmt.Printf("aBeaconsInBSpace (filtered): %v\n", aBeaconsInBSpace)
+			}
+
+			bBeaconsInUniversalSpace := orientBeacons(b.beacons, bOrientation)
+			if isSpecial {
+				fmt.Printf("bBeaconsInUniversalSpace (oriented): %v\n", bBeaconsInUniversalSpace)
+			}
+
+			bBeaconsInUniversalSpace = translateBeacons(bBeaconsInUniversalSpace, deltaB)
+			if isSpecial {
+				fmt.Printf("bBeaconsInUniversalSpace (translated): %v\n", bBeaconsInUniversalSpace)
+			}
+
+			bBeaconsInUniversalSpace = rotateBeacons(bBeaconsInUniversalSpace, bRotation)
+
+			if isSpecial {
+				fmt.Printf("bBeaconsInUniversalSpace (rotated): %v\n", bBeaconsInUniversalSpace)
+			}
+
+			bBeaconsInASpace := translateBeacons(bBeaconsInUniversalSpace, deltaA.inverse())
+
+			if isSpecial {
+				fmt.Printf("bBeaconsInASpace (translated): %v\n", bBeaconsInASpace)
+			}
+
+			bBeaconsInASpace = filterBeacons(bBeaconsInASpace, beaconIsVisible)
+
+			if isSpecial {
+				fmt.Printf("bBeaconsInASpace (filtered): %v\n", bBeaconsInASpace)
+			}
+
+			if len(aBeaconsInBSpace) != len(bBeaconsInASpace) {
+				if isSpecial {
+					fmt.Printf("different # of beacons found in a/b\n")
+				}
+				continue
+			}
+
+			if !allBeaconsFound(aBeaconsInBSpace, b.beacons) {
+				if isSpecial {
+					fmt.Printf("Not all a beacons found in b space for %v == %v\n", aBeacon, bBeacon)
+				}
+				continue
+			}
+
+			if !allBeaconsFound(bBeaconsInASpace, a.beacons) {
+				if isSpecial {
+					fmt.Printf("Not all b beacons found in a space for %v == %v\n", aBeacon, bBeacon)
+				}
+				continue
+			}
+
+			// In these rotations / orientation, len(aBeaconsInBSpace) beacons
+			// are shared in common between a + b
+			if len(bestResult[0]) < len(aBeaconsInBSpace) {
+				if isSpecial {
+					fmt.Printf("new best result: %v == %v yields %d in common\n", aBeacon, bBeacon, len(aBeaconsInBSpace))
+				}
+				bestResult = [][]point{
+					bBeaconsInASpace,
+					aBeaconsInBSpace,
+				}
+			} else {
+				if isSpecial {
+					fmt.Printf("NOT a new best result: %v == %v yields %d in common\n", aBeacon, bBeacon, len(aBeaconsInBSpace))
+				}
+
 			}
 		}
 	}
 
-	facingsToTry := []func(point) point{
-		func(p point) point { return point{p.x, p.y, p.z} },
-		func(p point) point { return point{p.x, p.z, p.y} },
-		func(p point) point { return point{p.y, p.x, p.z} },
-		func(p point) point { return point{p.y, p.z, p.x} },
-		func(p point) point { return point{p.z, p.x, p.y} },
-		func(p point) point { return point{p.z, p.y, p.x} },
-	}
+	return bestResult
+}
 
-	nullRotation := point{1, 1, 1}
+// calls <f> for a series of rotation / orientation options. If <f> returns
+// true, this means the try was successful, and the rotation/orientation combo
+// is recorded on <scanner> for future use
+func tryRotationsAndOrientations(scanner *scanner, f func(point, orientation)) {
 
-	var bestResult *scannerRelation
+	var rotationsToTry []point
+	var orientationsToTry []orientation
 
-	for _, rotation := range rotationsToTry {
-
-		for _, facing := range facingsToTry {
-
-			relation := scannerRelation{
-				a:              a,
-				b:              b,
-				rotationVector: rotation,
-			}
-
-			for _, aBeacon := range a.beacons {
-				for _, bBeacon := range b.beacons {
-
-					// Here we assume aBeacon == bBeacon and come up with a new coordinate
-					// system with this point as its origin. We can then translate all
-					// beacons on <a> and <b> into this new coordinate system.
-
-					// deltaA can be added to points from <a> to convert them into our
-					// "universal" coordinate space
-					deltaA := aBeacon.inverse()
-
-					// deltaB can be added to points from <b> to convert them into our
-					// "universal" coordinate space
-					deltaB := bBeacon.inverse()
-
-					aBeaconsInUniversalSpace := rotateAndTranslateBeacons(a.beacons, nullRotation, deltaA)
-					aBeaconsInBSpace := rotateAndTranslateBeacons(aBeaconsInUniversalSpace, rotation, deltaB.inverse())
-					aBeaconsInBSpace = filterBeacons(aBeaconsInBSpace, beaconIsVisible)
-					aBeaconsInBSpace = mapBeacons(aBeaconsInBSpace, facing)
-
-					bBeaconsInUniversalSpace := rotateAndTranslateBeacons(b.beacons, nullRotation, deltaB)
-					bBeaconsInASpace := rotateAndTranslateBeacons(bBeaconsInUniversalSpace, rotation, deltaA.inverse())
-					bBeaconsInASpace = filterBeacons(bBeaconsInASpace, beaconIsVisible)
-					bBeaconsInASpace = mapBeacons(bBeaconsInASpace, facing)
-
-					// If all the a beacons translated into b space are present in b.beacons
-					// AND
-					// all the b beacons translated into a space are present in a.beacons
-					// then we have a rotation that worked!
-
-					if allBeaconsFound(aBeaconsInBSpace, b.beacons) &&
-						allBeaconsFound(bBeaconsInASpace, a.beacons) {
-						// we have found it
-						relation.aBeacons = append(relation.aBeacons, aBeacon)
-						relation.bBeacons = append(relation.bBeacons, bBeacon)
-					}
+	if scanner.rotation != NullRotation {
+		rotationsToTry = []point{scanner.rotation}
+	} else {
+		for _, x := range []float64{-1, 1} {
+			for _, y := range []float64{-1, 1} {
+				for _, z := range []float64{-1, 1} {
+					rotationsToTry = append(rotationsToTry, point{x, y, z})
 				}
 			}
+		}
 
-			if bestResult == nil || len(relation.aBeacons) > len(bestResult.aBeacons) {
-				bestResult = &relation
-			}
+	}
+
+	if scanner.orientation != UnknownOrientation {
+		orientationsToTry = []orientation{scanner.orientation}
+	} else {
+		orientationsToTry = []orientation{
+			XyzOrientation,
+			XzyOrientation,
+			YxzOrientation,
+			YzxOrientation,
+			ZxyOrientation,
+			ZyxOrientation,
 		}
 	}
 
-	return *bestResult
+	for _, rotation := range rotationsToTry {
+		for _, orientation := range orientationsToTry {
+			// fmt.Printf("try rotation %v, orientation %s\n", rotation, orientation)
+			f(rotation, orientation)
+		}
+	}
 }
 
 func mapBeacons(slice []point, f func(point) point) []point {
@@ -201,6 +401,20 @@ func mapBeacons(slice []point, f func(point) point) []point {
 	for i := range slice {
 		result[i] = f(slice[i])
 	}
+	return result
+}
+
+func intersection(a, b []point) []point {
+	var result []point
+
+	for _, aPoint := range a {
+		for _, bPoint := range b {
+			if aPoint == bPoint {
+				result = append(result, aPoint)
+			}
+		}
+	}
+
 	return result
 }
 
@@ -237,13 +451,23 @@ func filterBeacons(slice []point, f func(point) bool) []point {
 	return result
 }
 
-// rotates each point in <slice> by multiplying it by <rotationVector>, then
-// adds <translationVector> to it.
-func rotateAndTranslateBeacons(slice []point, rotationVector point, translationVector point) []point {
+func orientBeacons(slice []point, o orientation) []point {
+	return mapBeacons(slice, func(p point) point {
+		return p.orient(o)
+	})
+}
+
+func rotateBeacons(slice []point, rotation point) []point {
+	return mapBeacons(slice, func(p point) point {
+		return p.multiply(rotation)
+	})
+}
+
+// returns a new slice in which each point in <slice> is translated by <translationVector>
+func translateBeacons(slice []point, translationVector point) []point {
 	result := make([]point, 0, len(slice))
 	for i := range slice {
-		rotated := slice[i].multiply(rotationVector)
-		translated := rotated.translate(translationVector)
+		translated := slice[i].translate(translationVector)
 		result = append(result, translated)
 	}
 	return result
@@ -313,7 +537,9 @@ func parseInput(r io.Reader) []scanner {
 
 		if strings.Index(l, "---") == 0 {
 			scanner := scanner{
-				name: strings.TrimSpace(strings.ReplaceAll(l, "---", "")),
+				name:        strings.TrimSpace(strings.ReplaceAll(l, "---", "")),
+				orientation: UnknownOrientation,
+				rotation:    NullRotation,
 			}
 			scanners = append(scanners, scanner)
 			continue
