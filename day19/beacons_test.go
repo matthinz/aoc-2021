@@ -5,6 +5,47 @@ import (
 	"testing"
 )
 
+func TestOrient(t *testing.T) {
+	p := point{1, 2, 3}
+	tests := map[orientation]point{
+		XyzOrientation: point{1, 2, 3},
+		XzyOrientation: point{1, 3, 2},
+		YxzOrientation: point{2, 1, 3},
+		YzxOrientation: point{2, 3, 1},
+		ZxyOrientation: point{3, 1, 2},
+		ZyxOrientation: point{3, 2, 1},
+	}
+
+	for o, expected := range tests {
+		actual := p.orient(o)
+		if expected != actual {
+			t.Errorf("orient(%s) failed: expected %v, got %v", o, expected, actual)
+		}
+	}
+}
+
+func TestUndoOrient(t *testing.T) {
+	p := point{1, 2, 3}
+
+	orientations := []orientation{
+		XyzOrientation,
+		XzyOrientation,
+		YxzOrientation,
+		YzxOrientation,
+		ZxyOrientation,
+		ZyxOrientation,
+	}
+
+	for _, o := range orientations {
+		oriented := p.orient(o)
+		undone := oriented.undoOrient(o)
+		if undone != p {
+			t.Errorf("undoOrient(%v) failed. Expected %v, got %v", o, p, undone)
+		}
+	}
+
+}
+
 func TestCountUniqueBeacons(t *testing.T) {
 	input := strings.NewReader(strings.TrimSpace(`
 	--- scanner 0 ---
@@ -147,24 +188,20 @@ func TestCountUniqueBeacons(t *testing.T) {
 
 	scanners := parseInput(input)
 
-	// rel := compareScanners(&scanners[0], &scanners[1])
-	// if len(rel.aBeacons) != 12 {
-	// 	t.Fatalf("0->1 should have had 12 beacons in common, got %d", len(rel.aBeacons))
-	// }
+	rel := compareScanners(&scanners[0], &scanners[1])
+	if len(rel.aBeacons) != 12 {
+		t.Fatalf("0->1 should have had 12 beacons in common, got %d", len(rel.aBeacons))
+	}
 
-	rel := compareScanners(&scanners[1], &scanners[4])
+	rel = compareScanners(&scanners[1], &scanners[4])
 	if len(rel.aBeacons) != 12 {
 		t.Fatalf("1->4 should have 12 beacons in common, got %d", len(rel.aBeacons))
 	}
 
-	// for i := range rel.aBeacons {
-	// 	t.Logf("%v = %v", rel.aBeacons[i], rel.bBeacons[i])
-	// }
+	expected := 79
+	actual := countUniqueBeaconsDetected(scanners)
 
-	// expected := 79
-	// actual := countUniqueBeaconsDetected(scanners)
-
-	// if actual != expected {
-	// 	t.Fatalf("Expected %d unique beacons, but got %d", expected, actual)
-	// }
+	if actual != expected {
+		t.Fatalf("Expected %d unique beacons, but got %d", expected, actual)
+	}
 }
