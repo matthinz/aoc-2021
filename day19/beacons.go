@@ -274,7 +274,11 @@ func findOverlap(a, b *scanner, aOrientation, bOrientation orientation, aRotatio
 	}
 
 	if len(result[0]) != len(result[1]) {
-		panic(fmt.Sprintf("result slices have different lengths: %d vs %d", len(result[0]), len(result[1])))
+		// panic(fmt.Sprintf("result slices for %s (%s,%v) and %s (%s,%v) have different lengths: %d vs %d", a.name, aOrientation, aRotation, b.name, bOrientation, bRotation, len(result[0]), len(result[1])))
+		return [2][]point{
+			{},
+			{},
+		}
 	}
 
 	return result
