@@ -27,7 +27,7 @@ const (
 	ZyxOrientation     = "zyx"
 )
 
-var NullRotation = point{1, 1, 1}
+var NullRotation = point{0, 0, 0}
 
 type scanner struct {
 	name    string
@@ -36,7 +36,7 @@ type scanner struct {
 	// orientation used to pick which direction is "up" and help align it with the world
 	orientation orientation
 
-	// rotation vector used to align this scanner to the world
+	// rotation vector (in degrees) used to align this scanner to the world
 	rotation point
 }
 
@@ -53,6 +53,9 @@ const MinBeaconsInCommon = 12
 
 // maximum visible distance for each scanner (a cube this many units on each side in either direction)
 const MaxScannerVisibility = 1000
+
+// degrees in which we increment our rotations about the x,y, and z axes
+const RotationIncrementDegrees = 90
 
 func main() {
 	l := log.New(os.Stderr, "", log.Default().Flags())
@@ -77,6 +80,14 @@ func Puzzle01(r io.Reader, l *log.Logger) string {
 
 ////////////////////////////////////////////////////////////////////////////////
 // point methods
+
+func (p *point) applyMatrix(matrix [3][3]float64) point {
+	return point{
+		math.Round(matrix[0][0]*p.x + matrix[0][1]*p.y + matrix[0][2]*p.z),
+		math.Round(matrix[1][0]*p.x + matrix[1][1]*p.y + matrix[1][2]*p.z),
+		math.Round(matrix[2][0]*p.x + matrix[2][1]*p.y + matrix[2][2]*p.z),
+	}
+}
 
 // returns a new point with each coordinate inverted
 func (p *point) inverse() point {
@@ -112,6 +123,48 @@ func (p *point) orient(o orientation) point {
 	default:
 		panic(fmt.Sprintf("Invalid orientation: %s", string(o)))
 	}
+}
+
+// rotates <p> using the given vector (in degrees)
+func (p *point) rotate(vector point) point {
+	result := p.rotateX(vector.x)
+	result = result.rotateY(vector.y)
+	result = result.rotateZ(vector.z)
+	return result
+}
+
+// rotates <p> <degrees> around the x axis
+func (p *point) rotateX(degrees float64) point {
+	radians := degrees * (math.Pi / 180)
+	matrix := [3][3]float64{
+		{1, 0, 0},
+		{0, math.Cos(radians), -1 * math.Sin(radians)},
+		{0, math.Sin(radians), math.Cos(radians)},
+	}
+	return p.applyMatrix(matrix)
+}
+
+// rotates <p> <degrees> around the y axis
+func (p *point) rotateY(degrees float64) point {
+	radians := degrees * (math.Pi / 180)
+	matrix := [3][3]float64{
+		{math.Cos(radians), 0, math.Sin(radians)},
+		{0, 1, 0},
+		{-1 * math.Sin(radians), 0, math.Cos(radians)},
+	}
+	return p.applyMatrix(matrix)
+}
+
+// rotates <p> <degrees> around the z axis
+func (p *point) rotateZ(degrees float64) point {
+	radians := degrees * (math.Pi / 180)
+	matrix := [3][3]float64{
+		{math.Cos(radians), -1 * math.Sin(radians), 0},
+		{math.Sin(radians), math.Cos(radians), 0},
+		{0, 0, 1},
+	}
+	return p.applyMatrix(matrix)
+
 }
 
 // returns a new point translated using the given vector
@@ -343,14 +396,13 @@ func tryRotationsAndOrientations(scanner *scanner, f func(point, orientation)) {
 	if scanner.rotation != NullRotation {
 		rotationsToTry = []point{scanner.rotation}
 	} else {
-		for _, x := range []float64{-1, 1} {
-			for _, y := range []float64{-1, 1} {
-				for _, z := range []float64{-1, 1} {
+		for x := 0.0; x < 360; x += RotationIncrementDegrees {
+			for y := 0.0; y < 360; y += RotationIncrementDegrees {
+				for z := 0.0; z < 360; z += RotationIncrementDegrees {
 					rotationsToTry = append(rotationsToTry, point{x, y, z})
 				}
 			}
 		}
-
 	}
 
 	if scanner.orientation != UnknownOrientation {

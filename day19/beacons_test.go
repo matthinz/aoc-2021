@@ -24,6 +24,69 @@ func TestOrient(t *testing.T) {
 	}
 }
 
+func TestRotateX(t *testing.T) {
+
+	p := point{4, 3, 2}
+
+	expected := []point{
+		point{4, 3, 2},
+		point{4, -2, 3},
+		point{4, -3, -2},
+		point{4, 2, -3},
+	}
+
+	for i := 0; i < len(expected); i++ {
+		degrees := 90 * i
+		actual := p.rotateX(float64(degrees))
+		if actual != expected[i] {
+			t.Errorf("%d: expected %v, got %v", degrees, expected[i], actual)
+		}
+	}
+
+}
+
+func TestRotateY(t *testing.T) {
+
+	p := point{4, 3, 2}
+
+	expected := []point{
+		point{4, 3, 2},
+		point{2, 3, -4},
+		point{-4, 3, -2},
+		point{-2, 3, 4},
+	}
+
+	for i := 0; i < len(expected); i++ {
+		degrees := 90 * i
+		actual := p.rotateY(float64(degrees))
+		if actual != expected[i] {
+			t.Errorf("%d: expected %v, got %v", degrees, expected[i], actual)
+		}
+	}
+
+}
+
+func TestRotateZ(t *testing.T) {
+
+	p := point{4, 3, 2}
+
+	expected := []point{
+		point{4, 3, 2},
+		point{-3, 4, 2},
+		point{-4, -3, 2},
+		point{3, -4, 2},
+	}
+
+	for i := 0; i < len(expected); i++ {
+		degrees := 90 * i
+		actual := p.rotateZ(float64(degrees))
+		if actual != expected[i] {
+			t.Errorf("%d: expected %v, got %v", degrees, expected[i], actual)
+		}
+	}
+
+}
+
 func TestUndoOrient(t *testing.T) {
 	p := point{1, 2, 3}
 
@@ -46,7 +109,7 @@ func TestUndoOrient(t *testing.T) {
 
 }
 
-func TestCountUniqueBeacons(t *testing.T) {
+func TestCompareScanners(t *testing.T) {
 	input := strings.NewReader(strings.TrimSpace(`
 	--- scanner 0 ---
 	404,-588,-901
@@ -191,17 +254,5 @@ func TestCountUniqueBeacons(t *testing.T) {
 	rel := compareScanners(&scanners[0], &scanners[1])
 	if len(rel.aBeacons) != 12 {
 		t.Fatalf("0->1 should have had 12 beacons in common, got %d", len(rel.aBeacons))
-	}
-
-	rel = compareScanners(&scanners[1], &scanners[4])
-	if len(rel.aBeacons) != 12 {
-		t.Fatalf("1->4 should have 12 beacons in common, got %d", len(rel.aBeacons))
-	}
-
-	expected := 79
-	actual := countUniqueBeaconsDetected(scanners)
-
-	if actual != expected {
-		t.Fatalf("Expected %d unique beacons, but got %d", expected, actual)
 	}
 }
