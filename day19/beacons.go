@@ -58,17 +58,48 @@ func main() {
 	l := log.New(os.Stderr, "", log.Default().Flags())
 	result := Puzzle01(os.Stdin, l)
 	fmt.Println(result)
+
+	os.Stdin.Seek(0, 0)
+	result = Puzzle02(os.Stdin, l)
+	fmt.Println(result)
 }
 
 func Puzzle01(r io.Reader, l *log.Logger) string {
-	scanners := parseInput(os.Stdin)
+	scanners := parseInput(r)
 
 	solution := solve(scanners)
 
 	return strconv.Itoa(len(solution.beacons))
 }
 
+func Puzzle02(r io.Reader, l *log.Logger) string {
+
+	scanners := parseInput(r)
+	solution := solve(scanners)
+
+	var maxDistance float64
+
+	for i := 0; i < len(solution.scanners); i++ {
+		for j := i + 1; j < len(solution.scanners); j++ {
+			distance := manhattanDistance(
+				solution.scanners[i].location,
+				solution.scanners[j].location,
+			)
+			if distance > maxDistance {
+				maxDistance = distance
+			}
+		}
+	}
+
+	return strconv.FormatFloat(maxDistance, 'f', 4, 64)
+}
+
 ////////////////////////////////////////////////////////////////////////////////
+
+func manhattanDistance(a, b point) float64 {
+	return math.Abs(a.x-b.x) + math.Abs(a.y-b.y) + math.Abs(a.z-b.z)
+
+}
 
 // given a set of scanners, returns a solution
 func solve(scanners []scanner) solution {
@@ -181,7 +212,7 @@ func solveScanner(a scanner, b solvedScanner) (bool, *solvedScanner) {
 	var solution *solvedScanner
 	var bestBeaconsInCommon int
 
-	tryRotationsAndOrientations(func(rotation point, orientation orientation) {
+	tryRotationsAndOrientations(func(rotation point, orientation orientation) bool {
 
 		aBeacons := orientBeacons(a.beacons, orientation)
 		aBeacons = rotateBeacons(aBeacons, rotation)
@@ -242,10 +273,11 @@ func solveScanner(a scanner, b solvedScanner) (bool, *solvedScanner) {
 						},
 						location: aLocation,
 					}
+					return true
 				}
 			}
 		}
-
+		return false
 	})
 
 	if solution == nil {
@@ -376,7 +408,7 @@ func (p *point) undoOrient(o orientation) point {
 ////////////////////////////////////////////////////////////////////////////////
 
 // calls <f> for a series of rotation / orientation options.
-func tryRotationsAndOrientations(f func(point, orientation)) {
+func tryRotationsAndOrientations(f func(point, orientation) bool) {
 
 	rotationsToTry := make([]point, 0, int(math.Pow(360/RotationIncrementDegrees, 3)))
 
@@ -399,7 +431,10 @@ func tryRotationsAndOrientations(f func(point, orientation)) {
 
 	for _, rotation := range rotationsToTry {
 		for _, orientation := range orientationsToTry {
-			f(rotation, orientation)
+			success := f(rotation, orientation)
+			if success {
+				return
+			}
 		}
 	}
 }
