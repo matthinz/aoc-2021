@@ -97,8 +97,7 @@ func solve(scanners []scanner) solution {
 				location: point{0, 0, 0},
 			})
 
-			fmt.Printf("Add beacons from %s\n", scanner.name)
-			for _, b := range result.beacons {
+			for _, b := range scanner.beacons {
 				uniqueBeacons[b] = true
 			}
 
@@ -118,7 +117,6 @@ func solve(scanners []scanner) solution {
 
 			result.scanners = append(result.scanners, *solved)
 
-			fmt.Printf("Add beacons from %s\n", solved.name)
 			for _, b := range solved.beacons {
 				// b is relative to <solved>
 				// translate it into our global space
@@ -140,7 +138,6 @@ func solve(scanners []scanner) solution {
 		}
 
 		// move <scanner> to the end of the slice -- hopefully we can solve it later
-		fmt.Printf("Moving %s to the end of slice to solve later\n", scanner.name)
 		for i := scannerIndex; i < len(scanners)-1; i++ {
 			scanners[i] = scanners[i+1]
 		}
@@ -182,6 +179,7 @@ func solve(scanners []scanner) solution {
 func solveScanner(a scanner, b solvedScanner) (bool, *solvedScanner) {
 
 	var solution *solvedScanner
+	var bestBeaconsInCommon int
 
 	tryRotationsAndOrientations(func(rotation point, orientation orientation) {
 
@@ -189,6 +187,7 @@ func solveScanner(a scanner, b solvedScanner) (bool, *solvedScanner) {
 		aBeacons = rotateBeacons(aBeacons, rotation)
 
 		for _, aBeacon := range aBeacons {
+
 			for _, bBeacon := range b.beacons {
 
 				// Here we assume that aBeacon == bBeacon, then try to disprove that
@@ -234,12 +233,15 @@ func solveScanner(a scanner, b solvedScanner) (bool, *solvedScanner) {
 				aLocation = aLocation.translate(b.location)
 
 				// We have a potential solution
-				solution = &solvedScanner{
-					scanner: scanner{
-						name:    a.name,
-						beacons: aBeacons,
-					},
-					location: aLocation,
+				if solution == nil || beaconsInCommon > bestBeaconsInCommon {
+					bestBeaconsInCommon = beaconsInCommon
+					solution = &solvedScanner{
+						scanner: scanner{
+							name:    a.name,
+							beacons: aBeacons,
+						},
+						location: aLocation,
+					}
 				}
 			}
 		}

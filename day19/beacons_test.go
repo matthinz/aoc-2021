@@ -277,54 +277,6 @@ func TestSolveScanners0And1(t *testing.T) {
 		t.Errorf("Scanner 1 should be at %v, but was at %v", expectedLocation, scanner1.location)
 	}
 
-	expectedBeacons := []point{
-		point{-618, -824, -621},
-		point{-537, -823, -458},
-		point{-447, -329, 318},
-		point{404, -588, -901},
-		point{-27, -1108, -65},
-		point{544, -627, -890},
-		point{408, -1815, 803},
-		point{-499, -1607, -770},
-		point{528, -643, 409},
-		point{-601, -1648, -643},
-		point{-661, -816, -575},
-		point{568, -2007, -577},
-		point{390, -675, -793},
-		point{534, -1912, 768},
-		point{497, -1838, -617},
-		point{423, -701, 434},
-		point{-635, -1737, 486},
-		point{396, -1931, -563},
-		point{-345, -311, 381},
-		point{459, -707, 401},
-		point{-518, -1681, -600},
-		point{432, -2009, 850},
-		point{-739, -1745, 668},
-		point{-687, -1600, 576},
-		point{-485, -357, 347},
-	}
-	foundBeacons := make(map[point]int)
-	for _, b := range solution.beacons {
-		foundBeacons[b]++
-	}
-
-	for _, b := range expectedBeacons {
-		count, ok := foundBeacons[b]
-		if !ok {
-			t.Errorf("Expected beacon %v in solution, but it was not found", b)
-			continue
-		}
-
-		if count != 1 {
-			t.Errorf("Expected beacon %v 1 time in solution, but it was found %d time(s)", b, count)
-		}
-	}
-
-	if len(solution.beacons) != len(expectedBeacons) {
-		t.Errorf("Expected solution to have %d beacons, but got %d", len(expectedBeacons), len(solution.beacons))
-	}
-
 }
 
 func TestSolveScanners0And1And4(t *testing.T) {
@@ -425,7 +377,7 @@ func TestSolveAllScanners(t *testing.T) {
 
 	for i, s := range solution.scanners {
 		if s.location != expectedLocations[i] {
-			t.Errorf("Expected #%d to have location %v, but got %v", i, expectedLocations[i], s.location)
+			t.Fatalf("Expected #%d to have location %v, but got %v", i, expectedLocations[i], s.location)
 		}
 	}
 
@@ -511,10 +463,33 @@ func TestSolveAllScanners(t *testing.T) {
 		point{1994, -1805, 1792},
 	}
 
-	if len(solution.beacons) != len(expectedBeacons) {
-		for _, b := range solution.beacons {
-			t.Logf("%d,%d,%d", int(b.x), int(b.y), int(b.z))
+	for _, b := range solution.beacons {
+		isExpected := false
+		for _, eb := range expectedBeacons {
+			if eb == b {
+				isExpected = true
+				break
+			}
 		}
+		if !isExpected {
+			t.Errorf("UNEXPECTED BEACON: %d,%d,%d", int(b.x), int(b.y), int(b.z))
+		}
+	}
+
+	for _, eb := range expectedBeacons {
+		wasFound := false
+		for _, b := range solution.beacons {
+			if b == eb {
+				wasFound = true
+				break
+			}
+		}
+		if !wasFound {
+			t.Errorf("MISSING BEACON: %d,%d,%d", int(eb.x), int(eb.y), int(eb.z))
+		}
+	}
+
+	if len(solution.beacons) != len(expectedBeacons) {
 		t.Errorf("Expected solution to have %d beacons, but got %d", len(expectedBeacons), len(solution.beacons))
 	}
 
