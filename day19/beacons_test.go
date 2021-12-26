@@ -343,6 +343,58 @@ func TestSolveScanners0And1And4(t *testing.T) {
 		t.Fatalf("Expected %s to be at %v, but was at %v", solution.scanners[2].name, expectedLocation, solution.scanners[2].location)
 	}
 
+	expectedScanner1And4Overlaps := []point{
+		point{459, -707, 401},
+		point{-739, -1745, 668},
+		point{-485, -357, 347},
+		point{432, -2009, 850},
+		point{528, -643, 409},
+		point{423, -701, 434},
+		point{-345, -311, 381},
+		point{408, -1815, 803},
+		point{534, -1912, 768},
+		point{-687, -1600, 576},
+		point{-447, -329, 318},
+		point{-635, -1737, 486},
+	}
+
+	scanner1BeaconsInGlobalSpace := translateBeacons(solution.scanners[1].beacons, solution.scanners[1].location)
+	scanner4BeaconsInGlobalSpace := translateBeacons(solution.scanners[2].beacons, solution.scanners[2].location)
+
+	actualOverlaps := intersection(scanner1BeaconsInGlobalSpace, scanner4BeaconsInGlobalSpace)
+
+	if len(actualOverlaps) != len(expectedScanner1And4Overlaps) {
+		t.Errorf("Wrong # of overlaps between scanners 1 + 4 (expected %d, got %d)", len(expectedScanner1And4Overlaps), len(actualOverlaps))
+	}
+
+	for _, b := range actualOverlaps {
+
+		found := false
+		for i := range expectedScanner1And4Overlaps {
+			if expectedScanner1And4Overlaps[i] == b {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("Overlap %v was not expected", b)
+		}
+
+	}
+
+	for _, b := range expectedScanner1And4Overlaps {
+
+		found := false
+		for i := range actualOverlaps {
+			if actualOverlaps[i] == b {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("Overlap %v was expected but not found", b)
+		}
+
+	}
+
 }
 
 func TestSolveAllScanners(t *testing.T) {
@@ -461,7 +513,7 @@ func TestSolveAllScanners(t *testing.T) {
 
 	if len(solution.beacons) != len(expectedBeacons) {
 		for _, b := range solution.beacons {
-			t.Logf("%f,%f,%f", b.x, b.y, b.z)
+			t.Logf("%d,%d,%d", int(b.x), int(b.y), int(b.z))
 		}
 		t.Errorf("Expected solution to have %d beacons, but got %d", len(expectedBeacons), len(solution.beacons))
 	}

@@ -61,8 +61,6 @@ func main() {
 }
 
 func Puzzle01(r io.Reader, l *log.Logger) string {
-	const minBeaconMatchesRequired = 12
-
 	scanners := parseInput(os.Stdin)
 
 	solution := solve(scanners)
@@ -99,6 +97,7 @@ func solve(scanners []scanner) solution {
 				location: point{0, 0, 0},
 			})
 
+			fmt.Printf("Add beacons from %s\n", scanner.name)
 			for _, b := range result.beacons {
 				uniqueBeacons[b] = true
 			}
@@ -119,6 +118,7 @@ func solve(scanners []scanner) solution {
 
 			result.scanners = append(result.scanners, *solved)
 
+			fmt.Printf("Add beacons from %s\n", solved.name)
 			for _, b := range solved.beacons {
 				// b is relative to <solved>
 				// translate it into our global space
@@ -157,7 +157,6 @@ func solve(scanners []scanner) solution {
 		b := result.beacons[j]
 
 		if a.x != b.x {
-
 			return a.x < b.x
 		}
 
@@ -231,13 +230,16 @@ func solveScanner(a scanner, b solvedScanner) (bool, *solvedScanner) {
 					continue
 				}
 
+				aLocation := bBeacon.translate(aBeacon.inverse())
+				aLocation = aLocation.translate(b.location)
+
 				// We have a potential solution
 				solution = &solvedScanner{
 					scanner: scanner{
 						name:    a.name,
 						beacons: aBeacons,
 					},
-					location: bBeacon.translate(aBeacon.inverse()),
+					location: aLocation,
 				}
 			}
 		}
