@@ -1,27 +1,13 @@
-package main
+package d03
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"strconv"
 )
 
 const MaxBitLength = 16
-
-func main() {
-
-	numbers := readNumbers(os.Stdin)
-
-	o2Rating := FindO2GeneratorRating(numbers)
-	co2ScrubberRating := FindCo2ScrubberRating(numbers)
-
-	fmt.Printf("Total numbers: %d\n", len(numbers))
-	fmt.Printf("O2 generator rating: %d\n", o2Rating)
-	fmt.Printf("CO2 scrubber rating: %d\n", co2ScrubberRating)
-	fmt.Printf("Life support rating: %d\n", o2Rating*co2ScrubberRating)
-}
 
 func FindCo2ScrubberRating(numbers []int) int {
 	candidates := numbers

@@ -1,8 +1,9 @@
-package main
+package d03
 
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -17,20 +18,21 @@ func TestParsingWorksHowIThink(t *testing.T) {
 }
 
 func TestFindO2GeneratorRating(t *testing.T) {
-	input := parseInput([]string{
-		"00100",
-		"11110",
-		"10110",
-		"10111",
-		"10101",
-		"01111",
-		"00111",
-		"11100",
-		"10000",
-		"11001",
-		"00010",
-		"01010",
-	})
+	input := parseSliceOfBinaryNumbers(
+		[]string{
+			"00100",
+			"11110",
+			"10110",
+			"10111",
+			"10101",
+			"01111",
+			"00111",
+			"11100",
+			"10000",
+			"11001",
+			"00010",
+			"01010",
+		})
 
 	actual := FindO2GeneratorRating(input)
 	expected := 23
@@ -40,20 +42,22 @@ func TestFindO2GeneratorRating(t *testing.T) {
 }
 
 func TestFindCo2ScrubberRating(t *testing.T) {
-	input := parseInput([]string{
-		"00100",
-		"11110",
-		"10110",
-		"10111",
-		"10101",
-		"01111",
-		"00111",
-		"11100",
-		"10000",
-		"11001",
-		"00010",
-		"01010",
-	})
+	input := parseSliceOfBinaryNumbers(
+		[]string{
+			"00100",
+			"11110",
+			"10110",
+			"10111",
+			"10101",
+			"01111",
+			"00111",
+			"11100",
+			"10000",
+			"11001",
+			"00010",
+			"01010",
+		},
+	)
 
 	actual := FindCo2ScrubberRating(input)
 	expected := 10
@@ -63,12 +67,14 @@ func TestFindCo2ScrubberRating(t *testing.T) {
 }
 
 func TestFindMostAndLeastCommonBits(t *testing.T) {
-	input := parseInput([]string{
-		"1001",
-		"1010",
-		"0010",
-		"1111",
-	})
+	input := parseSliceOfBinaryNumbers(
+		[]string{
+			"1001",
+			"1010",
+			"0010",
+			"1111",
+		},
+	)
 
 	expectedMostCommon := []int{
 		1,
@@ -97,30 +103,35 @@ func TestFindMostAndLeastCommonBits(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
-	input := parseInput([]string{
-		"1001",
-		"1010",
-		"0010",
-		"1111",
-	})
+	input := parseSliceOfBinaryNumbers(
+		[]string{
+			"1001",
+			"1010",
+			"0010",
+			"1111",
+		},
+	)
 
 	actual := FilterNumbersByBitAtPosition(input, 1, 0)
-	expected := parseInput([]string{
-		"1001",
-		"1111",
-	})
+
+	expected := parseSliceOfBinaryNumbers(
+		[]string{
+			"1001",
+			"1111",
+		},
+	)
 
 	assertEqual(t, actual, expected)
 
 	actual = FilterNumbersByBitAtPosition(input, 0, 0)
-	expected = parseInput([]string{
+	expected = parseSliceOfBinaryNumbers([]string{
 		"1010",
 		"0010",
 	})
 	assertEqual(t, actual, expected)
 
 	actual = FilterNumbersByBitAtPosition(input, 0, 3)
-	expected = parseInput([]string{
+	expected = parseSliceOfBinaryNumbers([]string{
 		"1001",
 		"1010",
 		"0010",
@@ -143,16 +154,10 @@ func assertEqual(t *testing.T, actual []int, expected []int) {
 
 }
 
-func parseInput(binaryNumbers []string) []int {
-	var result []int
-
-	for _, token := range binaryNumbers {
-		value, err := strconv.ParseInt(token, 2, 64)
-		if err != nil {
-			panic(err)
-		}
-		result = append(result, int(value))
-	}
-
-	return result
+func parseSliceOfBinaryNumbers(input []string) []int {
+	return parseInput(
+		strings.NewReader(
+			strings.Join(input, "\n"),
+		),
+	)
 }

@@ -1,5 +1,1 @@
-node_modules
-
-# golang binaries
-puzzle01
-puzzle02
+/aoc

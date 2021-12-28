@@ -1,8 +1,0 @@
-{
-  "name": "aoc-2021",
-  "version": "1.0.0",
-  "private": true,
-  "devDependencies": {
-    "prettier": "^2.5.0"
-  }
-}
