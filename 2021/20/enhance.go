@@ -1,13 +1,15 @@
-package main
+package d20
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type image struct {
@@ -16,17 +18,14 @@ type image struct {
 	pixels [][]bool
 }
 
-func main() {
-	l := log.New(os.Stderr, "", log.Default().Flags())
-	result := Puzzle01(os.Stdin, l)
-	fmt.Println(result)
+//go:embed input
+var defaultInput string
 
-	os.Stdin.Seek(0, 0)
-	result = Puzzle02(os.Stdin, l)
-	fmt.Println(result)
+func New() aoc.Day {
+	return aoc.NewDay(20, defaultInput, Puzzle1, Puzzle2)
 }
 
-func Puzzle01(r io.Reader, l *log.Logger) string {
+func Puzzle1(r io.Reader, l *log.Logger) string {
 	img, algorithm := parseInput(r)
 
 	enhanced := enhance(&img, algorithm)
@@ -38,7 +37,7 @@ func Puzzle01(r io.Reader, l *log.Logger) string {
 	return strconv.Itoa(count)
 }
 
-func Puzzle02(r io.Reader, l *log.Logger) string {
+func Puzzle2(r io.Reader, l *log.Logger) string {
 	return ""
 }
 
