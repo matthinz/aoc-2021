@@ -1,13 +1,15 @@
-package main
+package d09
 
 import (
 	"bufio"
-	"fmt"
+	_ "embed"
 	"io"
-	"os"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type point struct {
@@ -16,8 +18,15 @@ type point struct {
 	height int
 }
 
-func main() {
-	input := readInput(os.Stdin)
+//go:embed input
+var defaultInput string
+
+func New() aoc.Day {
+	return aoc.NewDay(9, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	input := readInput(r)
 	lowPoints := getLowPoints(input)
 
 	sumOfRiskLevels := 0
@@ -25,8 +34,12 @@ func main() {
 		sumOfRiskLevels += p.height + 1
 	}
 
-	fmt.Printf("Sum of risk levels: %d\n", sumOfRiskLevels)
+	return strconv.Itoa(sumOfRiskLevels)
+}
 
+func Puzzle2(r io.Reader, l *log.Logger) string {
+
+	input := readInput(r)
 	basins := findBasins(input)
 
 	sort.Slice(basins, func(i, j int) bool {
@@ -35,12 +48,11 @@ func main() {
 
 	sizes := 1
 	for i, b := range basins[0:3] {
-		fmt.Printf("%d. %d\n", i+1, len(b))
+		l.Printf("%d. %d\n", i+1, len(b))
 		sizes *= len(b)
 	}
 
-	fmt.Printf("3 largest multiplied: %d\n", sizes)
-
+	return strconv.Itoa(sizes)
 }
 
 func findBasins(input [][]int) [][]point {

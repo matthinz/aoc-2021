@@ -1,4 +1,4 @@
-package main
+package d08
 
 import (
 	"strings"

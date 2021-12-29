@@ -1,13 +1,17 @@
-package main
+package d08
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io"
+	"log"
 	"math"
-	"os"
 	"sort"
+	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type input struct {
@@ -28,8 +32,47 @@ var SignalValuesForNumbers = [10]string{
 	"abcdfg",
 }
 
-func main() {
-	inputs := parseInput(os.Stdin)
+//go:embed input
+var defaultInput string
+
+func New() aoc.Day {
+	return aoc.NewDay(8, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	inputs := parseInput(r)
+	ch := make(chan []int)
+
+	for _, i := range inputs {
+		go func(i input) {
+			key := interpretSignalValues(i.signalValues)
+			ch <- getDigits(i, key)
+		}(i)
+	}
+
+	var received int
+	var result int
+
+	for digits := range ch {
+		received++
+
+		for _, d := range digits {
+			if d == 1 || d == 4 || d == 7 || d == 8 {
+				result++
+			}
+		}
+
+		if received == len(inputs) {
+			close(ch)
+			break
+		}
+	}
+
+	return strconv.Itoa(result)
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	inputs := parseInput(r)
 	ch := make(chan int)
 
 	for _, i := range inputs {
@@ -47,7 +90,6 @@ func main() {
 		received++
 
 		sum += num
-		fmt.Printf("%d (total %d) - (%d / %d)\n", num, sum, received, len(inputs))
 
 		if received == len(inputs) {
 			close(ch)
@@ -55,6 +97,7 @@ func main() {
 		}
 	}
 
+	return strconv.Itoa(sum)
 }
 
 func makeIntFromDigits(digits []int) int {

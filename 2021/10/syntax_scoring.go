@@ -1,10 +1,14 @@
-package main
+package d10
 
 import (
 	"bufio"
-	"fmt"
-	"os"
+	_ "embed"
+	"io"
+	"log"
 	"sort"
+	"strconv"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 var ChunkDelimiters = map[rune]rune{
@@ -44,8 +48,38 @@ type parsedLine struct {
 	completion string
 }
 
-func main() {
-	s := bufio.NewScanner(os.Stdin)
+//go:embed input
+var defaultInput string
+
+func New() aoc.Day {
+	return aoc.NewDay(10, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	s := bufio.NewScanner(r)
+	var lineNumber int
+	var errorScore int
+
+	for s.Scan() {
+		lineNumber++
+		line := s.Text()
+		if len(line) == 0 {
+			continue
+		}
+
+		p := readLine(line)
+
+		if p.state == LineStateCorrupted {
+			errorScore += IllegalCharacterScores[p.errorRune]
+		}
+	}
+
+	return strconv.Itoa(errorScore)
+
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	s := bufio.NewScanner(r)
 	var lineNumber int
 	var errorScore int
 
@@ -67,27 +101,13 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Total error score: %d\n", errorScore)
-
 	sort.Slice(incompleteLines, func(i, j int) bool {
 		return incompleteLines[i].completionScore() < incompleteLines[j].completionScore()
 	})
 
-	// 7
-	// 7 / 2 = 3
-
 	midIndex := len(incompleteLines) / 2
 
-	for index, i := range incompleteLines {
-		var arrow string
-		if index == midIndex {
-			arrow = " <---"
-		}
-		fmt.Printf("%s : %d%s\n", i.completion, i.completionScore(), arrow)
-	}
-
-	fmt.Printf("Middle completion score: %d\n", incompleteLines[midIndex].completionScore())
-
+	return strconv.Itoa(incompleteLines[midIndex].completionScore())
 }
 
 func (p *parsedLine) completionScore() int {

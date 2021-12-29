@@ -1,11 +1,15 @@
-package main
+package d12
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io"
-	"os"
+	"log"
+	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type cave struct {
@@ -15,15 +19,23 @@ type cave struct {
 
 type connection [2]cave
 
-func main() {
-	connections := parseInput(os.Stdin)
+//go:embed input
+var defaultInput string
+
+func New() aoc.Day {
+	return aoc.NewDay(12, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+
+	connections := parseInput(r)
 
 	for _, c := range connections {
-		fmt.Printf("%s <-> %s\n", c[0].String(), c[1].String())
+		l.Printf("%s <-> %s\n", c[0].String(), c[1].String())
 	}
 
 	initialPath := []cave{
-		cave{
+		{
 			name: "start",
 			big:  false,
 		},
@@ -31,12 +43,27 @@ func main() {
 
 	paths := buildPaths(connections, initialPath, 1)
 
-	fmt.Printf("%d paths found visiting small caves only once\n", len(paths))
+	return strconv.Itoa(len(paths))
 
-	paths = buildPaths(connections, initialPath, 2)
+}
 
-	fmt.Printf("%d paths found when we're allowed to revisit one small cave once\n", len(paths))
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	connections := parseInput(r)
 
+	for _, c := range connections {
+		l.Printf("%s <-> %s\n", c[0].String(), c[1].String())
+	}
+
+	initialPath := []cave{
+		{
+			name: "start",
+			big:  false,
+		},
+	}
+
+	paths := buildPaths(connections, initialPath, 2)
+
+	return strconv.Itoa(len(paths))
 }
 
 func NewCave(name string) cave {

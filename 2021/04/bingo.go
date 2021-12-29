@@ -1,12 +1,16 @@
-package main
+package day04
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type square struct {
@@ -26,7 +30,33 @@ type game struct {
 
 type solvedBoard struct {
 	board
-	finalScore int
+	lastNumberDrawn int
+	finalScore      int
+}
+
+//go:embed input
+var defaultInput string
+
+func New() aoc.Day {
+	return aoc.NewDay(4, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	game := NewGame(r)
+	solvedBoards := game.Run()
+
+	board := solvedBoards[0]
+
+	return strconv.Itoa(board.score())
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	game := NewGame(r)
+	solvedBoards := game.Run()
+
+	board := solvedBoards[len(solvedBoards)-1]
+
+	return strconv.Itoa(board.score())
 }
 
 func main() {
@@ -53,11 +83,12 @@ func (g *game) Run() []solvedBoard {
 
 				finalScore := b.sumOfUnmarkedSquares() * number
 
-				fmt.Printf("%d: %d * %d = %d\n", b.index, b.sumOfUnmarkedSquares(), number, finalScore)
+				// fmt.Printf("%d: %d * %d = %d\n", b.index, b.sumOfUnmarkedSquares(), number, finalScore)
 
 				result = append(result, solvedBoard{
-					board:      *b,
-					finalScore: finalScore,
+					board:           *b,
+					lastNumberDrawn: number,
+					finalScore:      finalScore,
 				})
 
 				unsolvedBoards = removeBoardAt(unsolvedBoards, i)
@@ -151,6 +182,10 @@ func (b *board) isSolved() bool {
 	}
 
 	return anyRows || anyCols
+}
+
+func (b *solvedBoard) score() int {
+	return b.sumOfUnmarkedSquares() * b.lastNumberDrawn
 }
 
 func (b *board) sumOfUnmarkedSquares() int {

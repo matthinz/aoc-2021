@@ -1,13 +1,16 @@
-package main
+package d05
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io"
-	"os"
+	"log"
 	"regexp"
 	"strconv"
 	"sync"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type point struct {
@@ -20,9 +23,33 @@ type line struct {
 	end   point
 }
 
-func main() {
+//go:embed input
+var defaultInput string
 
-	lines := ParseInput(os.Stdin)
+func New() aoc.Day {
+	return aoc.NewDay(5, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	lines := ParseInput(r)
+
+	intersections := CalculateIntersections(lines, false)
+
+	var atLeast2 int
+
+	for _, row := range intersections {
+		for _, ct := range row {
+			if ct >= 2 {
+				atLeast2++
+			}
+		}
+	}
+
+	return strconv.Itoa(atLeast2)
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	lines := ParseInput(r)
 
 	intersections := CalculateIntersections(lines, true)
 
@@ -36,8 +63,7 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Points w/ at least 2 overlaps (including diagonals): %d\n", atLeast2)
-
+	return strconv.Itoa(atLeast2)
 }
 
 func (l *line) containsPoint(p point) bool {

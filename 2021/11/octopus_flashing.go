@@ -1,34 +1,56 @@
-package main
+package d11
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io"
-	"os"
+	"log"
 	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
-func main() {
-	input := parseInput(os.Stdin)
-	stepIndex := 0
+//go:embed input
+var defaultInput string
+
+func New() aoc.Day {
+	return aoc.NewDay(11, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+
+	input := parseInput(r)
 	totalFlashes := 0
+
+	for stepIndex := 0; stepIndex < 100; stepIndex++ {
+
+		nextInput, flashes := step(input)
+		totalFlashes += flashes
+
+		input = nextInput
+	}
+
+	return strconv.Itoa(totalFlashes)
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	input := parseInput(r)
 
 	height := len(input)
 	width := len(input[0])
 	area := width * height
 
+	stepIndex := 0
+
 	for {
 		stepIndex++
 
 		nextInput, flashes := step(input)
-		totalFlashes += flashes
-
-		fmt.Printf("%d: %d (%d)\n", stepIndex, flashes, totalFlashes)
 
 		if flashes == area {
-			fmt.Printf("All %d octopuses flashed!!\n", area)
-			break
+			return strconv.Itoa(stepIndex)
 		}
 
 		input = nextInput

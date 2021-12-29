@@ -1,4 +1,4 @@
-package main
+package d11
 
 import (
 	"fmt"
