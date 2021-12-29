@@ -1,12 +1,15 @@
-package main
+package d14
 
 import (
 	"bufio"
-	"fmt"
+	_ "embed"
 	"io"
-	"os"
+	"log"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type pair struct{ left, right byte }
@@ -22,18 +25,28 @@ type pairInsertionRule struct {
 	insert byte
 }
 
-func main() {
+//go:embed input
+var defaultInput string
 
-	game := parseInput(os.Stdin)
+func New() aoc.Day {
+	return aoc.NewDay(14, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	game := parseInput(r)
 
 	m := run(game, 10)
 	mostCommonChar, leastCommonChar := findMostAndLeastCommon(m)
-	fmt.Println(m[mostCommonChar] - m[leastCommonChar])
+	return strconv.Itoa(m[mostCommonChar] - m[leastCommonChar])
+}
 
-	m = run(game, 40)
-	mostCommonChar, leastCommonChar = findMostAndLeastCommon(m)
-	fmt.Println(m[mostCommonChar] - m[leastCommonChar])
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	game := parseInput(r)
 
+	m := run(game, 40)
+	mostCommonChar, leastCommonChar := findMostAndLeastCommon(m)
+
+	return strconv.Itoa(m[mostCommonChar] - m[leastCommonChar])
 }
 
 func run(g game, stepCount int) map[rune]int {

@@ -1,11 +1,15 @@
-package main
+package d18
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
+	"io"
+	"log"
 	"math"
-	"os"
 	"strconv"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type snailfishNumberKind int
@@ -23,9 +27,16 @@ type snailfishNumber struct {
 	parent *snailfishNumber
 }
 
-func main() {
+//go:embed input
+var defaultInput string
 
-	s := bufio.NewScanner(os.Stdin)
+func New() aoc.Day {
+	return aoc.NewDay(18, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+
+	s := bufio.NewScanner(r)
 
 	var num *snailfishNumber
 	var numbers []snailfishNumber
@@ -51,7 +62,37 @@ func main() {
 		}
 	}
 
-	fmt.Println(num.magnitude())
+	return strconv.Itoa(num.magnitude())
+
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+
+	s := bufio.NewScanner(r)
+
+	var num *snailfishNumber
+	var numbers []snailfishNumber
+
+	for s.Scan() {
+		line := s.Text()
+		if len(line) == 0 {
+			continue
+		}
+
+		parsed, err := parseSnailfishNumber(line)
+
+		if err != nil {
+			panic(err)
+		}
+
+		numbers = append(numbers, *parsed)
+
+		if num == nil {
+			num = parsed
+		} else {
+			num = num.add(*parsed)
+		}
+	}
 
 	var largestMagnitude int
 
@@ -70,7 +111,7 @@ func main() {
 		}
 	}
 
-	fmt.Println(largestMagnitude)
+	return strconv.Itoa(largestMagnitude)
 
 }
 

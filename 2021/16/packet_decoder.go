@@ -1,11 +1,15 @@
-package main
+package d16
 
 import (
+	_ "embed"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 // bitReader lets you read through a slice of bytes an arbitrary number of
@@ -26,16 +30,29 @@ type Packet struct {
 
 const LiteralPacketTypeId = 4
 
-func main() {
+//go:embed input
+var defaultInput string
 
-	data := parseInput(os.Stdin)
+func New() aoc.Day {
+	return aoc.NewDay(16, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+
+	data := parseInput(r)
 
 	packet := parseRootPacket(data)
 
-	fmt.Println(packet.sumVersions())
+	return strconv.Itoa(packet.sumVersions())
+}
 
-	fmt.Println(packet.evaluate())
+func Puzzle2(r io.Reader, l *log.Logger) string {
 
+	data := parseInput(r)
+
+	packet := parseRootPacket(data)
+
+	return strconv.FormatUint(packet.evaluate(), 10)
 }
 
 func printPacket(p *Packet, prefix string) {
@@ -157,7 +174,6 @@ func (p *Packet) sumVersions() int {
 func parseRootPacket(data []byte) Packet {
 
 	r := newBitReader(data)
-	r.debug = true
 
 	p, _ := parsePacket(r)
 

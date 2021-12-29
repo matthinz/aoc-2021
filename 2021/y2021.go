@@ -15,7 +15,20 @@ import (
 	d11 "github.com/matthinz/aoc-golang/2021/11"
 	d12 "github.com/matthinz/aoc-golang/2021/12"
 	d13 "github.com/matthinz/aoc-golang/2021/13"
-)
+	d14 "github.com/matthinz/aoc-golang/2021/14"
+	d15 "github.com/matthinz/aoc-golang/2021/15"
+	d16 "github.com/matthinz/aoc-golang/2021/16"
+	d17 "github.com/matthinz/aoc-golang/2021/17"
+	d18 "github.com/matthinz/aoc-golang/2021/18"
+	d19 "github.com/matthinz/aoc-golang/2021/19"
+	/*
+		d20	"github.com/matthinz/aoc-golang/2021/20"
+		d21	"github.com/matthinz/aoc-golang/2021/21"
+		d22	"github.com/matthinz/aoc-golang/2021/22"
+		d23	"github.com/matthinz/aoc-golang/2021/23"
+		d24	"github.com/matthinz/aoc-golang/2021/24"
+		d25	"github.com/matthinz/aoc-golang/2021/25"
+	*/)
 
 func New() aoc.Year {
 	return aoc.NewYear(
@@ -33,5 +46,11 @@ func New() aoc.Year {
 		d11.New(),
 		d12.New(),
 		d13.New(),
+		d14.New(),
+		d15.New(),
+		d16.New(),
+		d17.New(),
+		d18.New(),
+		d19.New(),
 	)
 }

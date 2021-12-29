@@ -1,4 +1,4 @@
-package main
+package d19
 
 import (
 	"strings"

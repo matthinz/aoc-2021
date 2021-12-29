@@ -1,15 +1,17 @@
-package main
+package d19
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
 	"math"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type point struct {
@@ -54,17 +56,14 @@ const MaxScannerVisibility = 1000
 // degrees in which we increment our rotations about the x,y, and z axes
 const RotationIncrementDegrees = 90
 
-func main() {
-	l := log.New(os.Stderr, "", log.Default().Flags())
-	result := Puzzle01(os.Stdin, l)
-	fmt.Println(result)
+//go:embed input
+var defaultInput string
 
-	os.Stdin.Seek(0, 0)
-	result = Puzzle02(os.Stdin, l)
-	fmt.Println(result)
+func New() aoc.Day {
+	return aoc.NewDay(19, defaultInput, Puzzle1, Puzzle2)
 }
 
-func Puzzle01(r io.Reader, l *log.Logger) string {
+func Puzzle1(r io.Reader, l *log.Logger) string {
 	scanners := parseInput(r)
 
 	solution := solve(scanners)
@@ -72,7 +71,7 @@ func Puzzle01(r io.Reader, l *log.Logger) string {
 	return strconv.Itoa(len(solution.beacons))
 }
 
-func Puzzle02(r io.Reader, l *log.Logger) string {
+func Puzzle2(r io.Reader, l *log.Logger) string {
 
 	scanners := parseInput(r)
 	solution := solve(scanners)
@@ -91,7 +90,7 @@ func Puzzle02(r io.Reader, l *log.Logger) string {
 		}
 	}
 
-	return strconv.FormatFloat(maxDistance, 'f', 4, 64)
+	return strconv.FormatFloat(maxDistance, 'f', 0, 64)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

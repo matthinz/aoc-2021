@@ -1,12 +1,36 @@
-package main
+package d17
 
-import "fmt"
+import (
+	_ "embed"
+	"io"
+	"log"
+	"strconv"
+
+	"github.com/matthinz/aoc-golang"
+)
 
 const MaxSteps = 1000
 const MinInitialYVelocity = -10000
 const MaxInitialYVelocity = 100000
 
-func main() {
+//go:embed input
+var defaultInput string
+
+func New() aoc.Day {
+	return aoc.NewDay(17, defaultInput, Puzzle1, Puzzle2)
+}
+
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	_, _, allTimeRecordY := solve(l)
+	return strconv.Itoa(allTimeRecordY)
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	hits, _, _ := solve(l)
+	return strconv.Itoa(hits)
+}
+
+func solve(l *log.Logger) (int, int, int) {
 
 	// target area: x=138..184, y=-125..-71
 	const minX = 138
@@ -48,7 +72,7 @@ func main() {
 						allTimeRecordY = localRecordY
 						recordInitialXVelocity = initialXVelocity
 						recordInitialYVelocity = initialYVelocity
-						fmt.Printf("New all-time record height of %d for velocity %d,%d!!!\n", allTimeRecordY, recordInitialXVelocity, recordInitialYVelocity)
+						l.Printf("New all-time record height of %d for velocity %d,%d!!!\n", allTimeRecordY, recordInitialXVelocity, recordInitialYVelocity)
 					}
 					break
 				}
@@ -62,10 +86,7 @@ func main() {
 		}
 	}
 
-	fmt.Printf("%d hits\n", hits)
-	fmt.Printf("%d misses\n", misses)
-	fmt.Printf("highest: %d\n", allTimeRecordY)
-
+	return hits, misses, allTimeRecordY
 }
 
 func doStep(x, y, xVelocity, yVelocity int) (int, int, int, int) {

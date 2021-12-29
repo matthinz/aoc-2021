@@ -1,4 +1,4 @@
-package main
+package d18
 
 import (
 	"fmt"
@@ -130,7 +130,7 @@ func TestSum(t *testing.T) {
 			num = n
 		} else {
 			fmt.Printf("%s + %s\n", num.String(), n.String())
-			num = num.add(n)
+			num = num.add(*n)
 		}
 
 		num.checkDepths(0)

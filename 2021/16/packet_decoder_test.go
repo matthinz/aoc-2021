@@ -1,4 +1,4 @@
-package main
+package d16
 
 import (
 	"strings"
@@ -87,7 +87,7 @@ func TestParseLiteralPacket(t *testing.T) {
 		t.Fatalf("Wrong typeId. Expected 4, got %d", p.TypeId)
 	}
 
-	expectedNum := uint32(2021)
+	expectedNum := uint64(2021)
 	if p.LiteralValue != expectedNum {
 		t.Fatalf("Wrong literal value. Expected %d, got %d", expectedNum, p.LiteralValue)
 	}
@@ -120,7 +120,7 @@ func TestParseOperatorPacketLengthTypeId0(t *testing.T) {
 		0b100,
 		0b100,
 	}
-	expectedLiteralValues := []uint32{
+	expectedLiteralValues := []uint64{
 		0b1010,
 		0b00010100,
 	}
@@ -172,7 +172,7 @@ func TestParseOperatorPacketLengthTypeId1(t *testing.T) {
 		0b100,
 		0b100,
 	}
-	expectedLiteralValues := []uint32{
+	expectedLiteralValues := []uint64{
 		0b0001,
 		0b0010,
 		0b0011,
@@ -236,7 +236,7 @@ func TestEvaluate(t *testing.T) {
 		packet := parseRootPacket(data)
 
 		actual := packet.evaluate()
-		if actual != uint32(expected) {
+		if actual != uint64(expected) {
 			t.Fatalf("Expected %d, got %d", expected, actual)
 		}
 	}

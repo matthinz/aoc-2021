@@ -1,15 +1,17 @@
-package main
+package d15
 
 import (
 	"bufio"
-	"fmt"
+	_ "embed"
 	"io"
+	"log"
 	"math/rand"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/matthinz/aoc-golang"
 )
 
 type point struct {
@@ -21,15 +23,24 @@ type point struct {
 
 const unknownRisk = -1
 
-func main() {
+//go:embed input
+var defaultInput string
 
-	grid := parseInput(os.Stdin)
-	lowestTotalRisk := solveDijkstra(grid)
-	fmt.Println(lowestTotalRisk)
+func New() aoc.Day {
+	return aoc.NewDay(15, defaultInput, Puzzle1, Puzzle2)
+}
 
+func Puzzle1(r io.Reader, l *log.Logger) string {
+	grid := parseInput(r)
+	lowestTotalRisk := solveDijkstra(grid, l)
+	return strconv.Itoa(lowestTotalRisk)
+}
+
+func Puzzle2(r io.Reader, l *log.Logger) string {
+	grid := parseInput(r)
 	grid = inflateGrid(grid, 5)
-	lowestTotalRisk = solveDijkstra(grid)
-	fmt.Println(lowestTotalRisk)
+	lowestTotalRisk := solveDijkstra(grid, l)
+	return strconv.Itoa(lowestTotalRisk)
 }
 
 func inflateGrid(grid *[][]int, inflationFactor int) *[][]int {
@@ -61,7 +72,7 @@ func inflateGrid(grid *[][]int, inflationFactor int) *[][]int {
 	return &inflatedGrid
 }
 
-func solveDijkstra(grid *[][]int) int {
+func solveDijkstra(grid *[][]int, l *log.Logger) int {
 
 	height := len(*grid)
 	width := len((*grid)[0])
@@ -106,7 +117,7 @@ func solveDijkstra(grid *[][]int) int {
 			remainingSeconds := secondsToProcessOne * float64(left)
 
 			if left > 10000 {
-				fmt.Fprintf(os.Stderr, "%d to visit, %v elapsed, ~%fs remain\n", left, duration, remainingSeconds)
+				l.Printf("%d to visit, %v elapsed, ~%fs remain\n", left, duration, remainingSeconds)
 			}
 		}
 

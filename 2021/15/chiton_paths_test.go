@@ -1,6 +1,7 @@
-package main
+package d15
 
 import (
+	"log"
 	"strings"
 	"testing"
 )
@@ -21,7 +22,7 @@ func TestSolveDijkstra(t *testing.T) {
 
 	grid := parseInput(input)
 
-	lowestTotalRisk := solveDijkstra(grid)
+	lowestTotalRisk := solveDijkstra(grid, log.Default())
 	if lowestTotalRisk != 40 {
 		t.Fatalf("Wrong answer -- expected %d, got %d", 40, lowestTotalRisk)
 	}
