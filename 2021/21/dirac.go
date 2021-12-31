@@ -3,7 +3,6 @@ package d21
 import (
 	"bufio"
 	_ "embed"
-	"fmt"
 	"io"
 	"log"
 	"regexp"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/matthinz/aoc-golang"
 )
+
+// TODO: Implement part 1 using quantum games
 
 type player struct {
 	pos   int
@@ -25,12 +26,18 @@ type game struct {
 }
 
 type quantumGame struct {
-	// these map a player struct to the # of universes where that struct could exist
-	player1 map[player]uint
-	player2 map[player]uint
+	// this maps game states to the number of universes in which they exist
+	states map[quantumGameState]uint
+}
 
-	player1Wins uint
-	player2Wins uint
+type quantumGameState struct {
+	player1Pos, player2Pos     int
+	player1Score, player2Score int
+}
+
+type quantumGameResult struct {
+	// universes in which each player wins
+	player1Wins, player2Wins uint
 }
 
 const boardSize = 10
@@ -56,126 +63,146 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 func Puzzle2(r io.Reader, l *log.Logger) string {
 	game := parseInput(r)
 
-	qgame := quantumGame{
-		player1:     make(map[player]uint),
-		player2:     make(map[player]uint),
-		player1Wins: 0,
-		player2Wins: 0,
-	}
+	result := runQuantumGame(
+		game.player1.pos,
+		game.player2.pos,
+	)
 
-	// players start the game on their starting position w/ 0 score in 1 universe
-	qgame.player1[game.player1] = 1
-	qgame.player2[game.player2] = 1
-
-	qgame.run()
-
-	if qgame.player1Wins > qgame.player2Wins {
-		return strconv.FormatUint(uint64(qgame.player1Wins), 10)
-	} else if qgame.player2Wins > qgame.player1Wins {
-		return strconv.FormatUint(uint64(qgame.player2Wins), 10)
+	if result.player1Wins > result.player2Wins {
+		return strconv.FormatUint(uint64(result.player1Wins), 10)
+	} else if result.player2Wins > result.player1Wins {
+		return strconv.FormatUint(uint64(result.player2Wins), 10)
 	} else {
-		panic("they tied?")
+		return "tie"
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // quantum game
 
-func (q *quantumGame) run() {
+func runQuantumGame(player1Pos, player2Pos int) quantumGameResult {
+
+	const rollsPerTurn = 3
 	const maxScore = 21
 
-	// maps move distance (key) to the # of universes in which the player would get that distance
-	moves := make(map[int]uint)
-	for i := 1; i <= 3; i++ {
-		for j := 1; j <= 3; j++ {
-			for k := 1; k <= 3; k++ {
-				moves[i+j+k]++
-			}
-		}
+	// states maps a game state to the number of universes in which it exists
+	states := make(map[quantumGameState]uint)
+
+	// initially we have our starting game state, which exists in 1 universe
+	initialState := quantumGameState{
+		player1Pos: player1Pos,
+		player2Pos: player2Pos,
 	}
+	states[initialState] = 1
 
 	for {
 
-		q.player1Wins += calculateQuantumWins(moves, q.player1)
+		// Move the first player
+		nextStates := make(map[quantumGameState]uint)
+		moves := rollQuantumDie(3, 3)
+		anyStillRunning := false
 
-		q.player2Wins += calculateQuantumWins(moves, q.player2)
+		for state, universes := range states {
 
-		fmt.Printf("%d vs %d\n", q.player1Wins, q.player2Wins)
+			if state.player1Score >= maxScore || state.player2Score >= maxScore {
+				nextStates[state] += universes
+				continue
+			}
 
-		q.player1 = quantumStep(moves, q.player1)
+			anyStillRunning = true
 
-		q.player2 = quantumStep(moves, q.player2)
-
-		var totalUniverses uint
-		for _, universes := range q.player1 {
-			totalUniverses += universes
+			for move, moveUniverses := range moves {
+				nextPos := getNextPosition(state.player1Pos, move)
+				nextState := quantumGameState{
+					player1Pos:   getNextPosition(state.player1Pos, move),
+					player1Score: state.player1Score + nextPos,
+					player2Score: state.player2Score,
+					player2Pos:   state.player2Pos,
+				}
+				nextStates[nextState] += universes * moveUniverses
+			}
 		}
 
-		fmt.Printf("total: %d\n", totalUniverses)
+		states = nextStates
+		nextStates = make(map[quantumGameState]uint)
 
-		if q.player1Wins+q.player2Wins > totalUniverses {
+		if !anyStillRunning {
+			break
+		}
+
+		nextStates = make(map[quantumGameState]uint)
+		moves = rollQuantumDie(3, 3)
+		anyStillRunning = false
+
+		for state, universes := range states {
+
+			if state.player1Score >= maxScore || state.player2Score >= maxScore {
+				nextStates[state] += universes
+				continue
+			}
+
+			anyStillRunning = true
+
+			for move, moveUniverses := range moves {
+				nextPos := getNextPosition(state.player2Pos, move)
+				nextState := quantumGameState{
+					player1Pos:   state.player1Pos,
+					player1Score: state.player1Score,
+					player2Pos:   nextPos,
+					player2Score: state.player2Score + nextPos,
+				}
+				nextStates[nextState] += universes * moveUniverses
+			}
+		}
+
+		states = nextStates
+
+		if !anyStillRunning {
 			break
 		}
 	}
-}
 
-// returns the number of universes in which the given moves would move the
-// player's score >= 21
-func calculateQuantumWins(moves map[int]uint, playerStates map[player]uint) uint {
+	result := quantumGameResult{}
 
-	var wins uint
-
-	for moveDistance, moveUniverses := range moves {
-
-		for pos := 1; pos <= 10; pos++ {
-
-			scoreBoost := pos + moveDistance
-			if scoreBoost > 10 {
-				scoreBoost = scoreBoost % 10
-			}
-
-			// find all player states such that state.pos == pos && state.score + scoreBoost > 21
-			for p, playerUniverses := range playerStates {
-
-				if p.pos != pos {
-					continue
-				}
-
-				if p.score >= 21 {
-					continue
-				}
-
-				if p.score+scoreBoost < 21 {
-					continue
-				}
-
-				wins += playerUniverses * moveUniverses
-			}
+	for state, universes := range states {
+		if state.player1Score >= maxScore {
+			result.player1Wins += universes
+		} else if state.player2Score >= maxScore {
+			result.player2Wins += universes
 		}
 	}
 
-	return wins
+	return result
 }
 
-func quantumStep(moves map[int]uint, playerStates map[player]uint) map[player]uint {
+func getNextPosition(startingPos, distance int) int {
+	result := startingPos + distance
+	for result > boardSize {
+		result -= boardSize
+	}
+	return result
+}
 
-	next := make(map[player]uint)
+func rollQuantumDie(sides, rolls int) map[int]uint {
+	result := make(map[int]uint)
 
-	for distance, moveUniverses := range moves {
-		for p, playerUniverses := range playerStates {
-			newPos := p.pos + distance
-			if newPos > 10 {
-				newPos = newPos % 10
-			}
-			nextPlayer := player{
-				pos:   newPos,
-				score: p.score + newPos,
-			}
-			next[nextPlayer] += (playerUniverses * moveUniverses)
-		}
+	// The first roll makes each side spawn a single universe
+	for i := 1; i <= sides; i++ {
+		result[i] = 1
 	}
 
-	return next
+	for roll := 1; roll < rolls; roll++ {
+		nextResult := make(map[int]uint)
+		for prevValue, prevUniverses := range result {
+			for side := 1; side <= sides; side++ {
+				nextResult[prevValue+side] += prevUniverses
+			}
+		}
+		result = nextResult
+	}
+
+	return result
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -29,3 +29,27 @@ Player 2 starting position: 8
 		t.Errorf("Expected %s but got %s", expected, actual)
 	}
 }
+
+func TestRollQuantumDie(t *testing.T) {
+	expected := make(map[int]uint)
+	for i := 1; i <= 3; i++ {
+		for j := 1; j <= 3; j++ {
+			for k := 1; k <= 3; k++ {
+				expected[i+j+k] += 1
+			}
+		}
+	}
+
+	actual := rollQuantumDie(3, 3)
+
+	if len(actual) != len(expected) {
+		t.Errorf("Expected %d moves, but got %d", len(expected), len(actual))
+	}
+
+	for move, universes := range expected {
+		if actual[move] != universes {
+			t.Errorf("Expected move %d to have %d universes, but had %d", move, universes, actual[move])
+		}
+	}
+
+}
