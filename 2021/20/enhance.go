@@ -13,9 +13,10 @@ import (
 )
 
 type image struct {
-	width  int
-	height int
-	pixels [][]bool
+	width         int
+	height        int
+	pixels        [][]bool
+	infinitePixel bool
 }
 
 //go:embed input
@@ -38,7 +39,17 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 }
 
 func Puzzle2(r io.Reader, l *log.Logger) string {
-	return ""
+	img, algorithm := parseInput(r)
+
+	enhanced := &img
+
+	for i := 0; i < 50; i++ {
+		enhanced = enhance(enhanced, algorithm)
+	}
+
+	count := countLitPixels(enhanced)
+
+	return strconv.Itoa(count)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -47,19 +58,25 @@ func Puzzle2(r io.Reader, l *log.Logger) string {
 func enhance(img *image, algorithm []bool) *image {
 
 	result := image{
-		width:  img.width,
-		height: img.height,
+		width:  img.width + 2,
+		height: img.height + 2,
 	}
 	result.pixels = make([][]bool, result.height)
 
+	if img.infinitePixel {
+		// new infinite pixel will be algorithm at 0x111111111 (511)
+		result.infinitePixel = algorithm[511]
+	} else {
+		// new infinite pixel will be algorithm at 0
+		result.infinitePixel = algorithm[0]
+	}
+
 	for destY := 0; destY < result.height; destY++ {
+		srcY := destY - 1
 		result.pixels[destY] = make([]bool, result.width)
 
 		for destX := 0; destX < result.width; destX++ {
-
-			srcX := destX + ((img.width - result.width) / 2)
-			srcY := destY + ((img.height - result.height) / 2)
-
+			srcX := destX - 1
 			chunk := extractChunk(img, srcX, srcY)
 
 			index := chunkToIndex(chunk)
@@ -67,10 +84,74 @@ func enhance(img *image, algorithm []bool) *image {
 			result.pixels[destY][destX] = algorithm[index]
 		}
 	}
+
 	return &result
 }
 
-func chunkToIndex(chunk [3][3]bool) int {
+func trimImage(img *image) *image {
+
+	leftMost := -1
+	topMost := -1
+	rightMost := -1
+	bottomMost := -1
+
+	for y := 0; y < img.height; y++ {
+		for x := 0; x < img.width; x++ {
+
+			pixel := img.pixels[y][x]
+			if !pixel {
+				continue
+			}
+
+			if leftMost == -1 || x < leftMost {
+				leftMost = x
+			}
+
+			if rightMost == -1 || x > rightMost {
+				rightMost = x
+			}
+
+			if topMost == -1 || y < topMost {
+				topMost = y
+			}
+
+			if bottomMost == -1 || y > bottomMost {
+				bottomMost = y
+			}
+		}
+	}
+
+	newWidth := rightMost - leftMost + 1
+	newHeight := bottomMost - topMost + 1
+
+	if newWidth < 0 || newHeight < 0 {
+		return &image{
+			width:  0,
+			height: 0,
+		}
+	}
+
+	result := image{
+		width:  newWidth,
+		height: newHeight,
+	}
+
+	result.pixels = make([][]bool, result.height)
+
+	for srcY := topMost; srcY <= bottomMost; srcY++ {
+		destY := srcY - topMost
+		result.pixels[destY] = make([]bool, result.width)
+
+		for srcX := leftMost; srcX <= rightMost; srcX++ {
+			destX := srcX - leftMost
+			result.pixels[destY][destX] = img.pixels[srcY][srcX]
+		}
+	}
+
+	return &result
+}
+
+func chunkToIndex(chunk [][]bool) int {
 	// chunk is read left-to-right, top-to-bottom as a 9 bit binary number
 	var result int
 
@@ -87,14 +168,16 @@ func chunkToIndex(chunk [3][3]bool) int {
 }
 
 // extracts a 3x3 matrix from <img> centered on x,y
-func extractChunk(img *image, x int, y int) [3][3]bool {
+func extractChunk(img *image, x int, y int) [][]bool {
 
-	chunk := [3][3]bool{}
+	chunk := make([][]bool, 3)
 
 	for dY := -1; dY <= 1; dY++ {
+		chunkY := dY + 1
+		chunk[chunkY] = make([]bool, 3)
+
 		for dX := -1; dX <= 1; dX++ {
 
-			chunkY := dY + 1
 			chunkX := dX + 1
 
 			actualY := y + dY
@@ -103,9 +186,9 @@ func extractChunk(img *image, x int, y int) [3][3]bool {
 			var pixel bool
 
 			if actualY < 0 || actualY >= img.height {
-				pixel = false
+				pixel = img.infinitePixel
 			} else if actualX < 0 || actualX >= img.width {
-				pixel = false
+				pixel = img.infinitePixel
 			} else {
 				pixel = img.pixels[actualY][actualX]
 			}
@@ -119,6 +202,10 @@ func extractChunk(img *image, x int, y int) [3][3]bool {
 }
 
 func countLitPixels(img *image) int {
+	if img.infinitePixel {
+		panic("infinite pixels are lit")
+	}
+
 	var count int
 	for y := 0; y < img.height; y++ {
 		for x := 0; x < img.width; x++ {
@@ -181,4 +268,22 @@ func parseInput(r io.Reader) (image, []bool) {
 	}
 
 	return image, algorithm
+}
+
+func printPixels(pixels *[][]bool) string {
+	sb := strings.Builder{}
+	for y := 0; y < len(*pixels); y++ {
+		if sb.Len() > 0 {
+			sb.WriteString("\n")
+		}
+		for x := 0; x < len((*pixels)[y]); x++ {
+			pixel := (*pixels)[y][x]
+			if pixel {
+				sb.WriteString("#")
+			} else {
+				sb.WriteString(".")
+			}
+		}
+	}
+	return sb.String()
 }
