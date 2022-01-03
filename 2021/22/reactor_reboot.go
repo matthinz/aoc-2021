@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/matthinz/aoc-golang"
 )
@@ -25,7 +26,11 @@ type cuboid struct {
 }
 
 type interval struct {
-	start, end int
+	// inclusive starting point of this interval
+	start int
+
+	// *exclusive* ending point of this interval
+	end int
 
 	// Sorted set of indices of cuboids that correspond to this interval
 	cuboidIndices []int
@@ -42,9 +47,23 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 
 	cuboids := parseInput(r)
 
-	reactor := initializeReactorUsingBruteForce(cuboids)
+	initializationCuboids := make([]cuboid, 0)
+	for _, c := range cuboids {
+		if c.position.x < -50 || c.position.x > 50 {
+			continue
+		}
+		if c.position.y < -50 || c.position.y > 50 {
+			continue
+		}
+		if c.position.z < -50 || c.position.z > 50 {
+			continue
+		}
+		initializationCuboids = append(initializationCuboids, c)
+	}
 
-	ct := countCubesOnUsingBruteForce(reactor)
+	normalized := initializeReactor(initializationCuboids, l)
+
+	ct := countCubesOn(normalized)
 
 	return strconv.FormatUint(uint64(ct), 10)
 }
@@ -52,13 +71,13 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 func Puzzle2(r io.Reader, l *log.Logger) string {
 	cuboids := parseInput(r)
 
-	normalized := initializeReactor(cuboids)
+	l.Printf("Parsed %d cuboids from input", len(cuboids))
 
-	var ct uint
+	normalized := initializeReactor(cuboids, l)
 
-	for _, c := range normalized {
-		ct += (uint(c.size.x) * uint(c.size.y) * uint(c.size.z))
-	}
+	l.Printf("Normalized into %d cuboids", len(normalized))
+
+	ct := countCubesOn(normalized)
 
 	return strconv.FormatUint(uint64(ct), 10)
 }
@@ -68,23 +87,150 @@ func Puzzle2(r io.Reader, l *log.Logger) string {
 
 // takes a set of cuboids and returns a normalized set of non-overlapping
 // cuboids that have been turned on
-func initializeReactor(cuboids []cuboid) []cuboid {
-	return []cuboid{}
+func initializeReactor(cuboids []cuboid, l *log.Logger) []cuboid {
+
+	xIntervals := buildIntervals(
+		cuboids,
+		func(c cuboid) int {
+			return c.position.x
+		},
+		func(c cuboid) int {
+			return c.size.x
+		},
+	)
+
+	yIntervals := buildIntervals(
+		cuboids,
+		func(c cuboid) int {
+			return c.position.y
+		},
+		func(c cuboid) int {
+			return c.size.y
+		},
+	)
+
+	zIntervals := buildIntervals(
+		cuboids,
+		func(c cuboid) int {
+			return c.position.z
+		},
+		func(c cuboid) int {
+			return c.size.z
+		},
+	)
+
+	log.Printf("%d x intervals, %d y intervals, %d z intervals (=%d combos)", len(xIntervals), len(yIntervals), len(zIntervals), len(xIntervals)*len(yIntervals)*len(zIntervals))
+
+	result := make([]cuboid, 0)
+
+	processed := 0
+	start := time.Now()
+
+	for _, xInterval := range xIntervals {
+		for _, yInterval := range yIntervals {
+			for _, zInterval := range zIntervals {
+
+				processed++
+				if processed%1000000 == 0 {
+					elapsed := time.Now().Sub(start)
+					msPer := float64(elapsed.Milliseconds()) / float64(processed)
+					remaining := (len(xIntervals) * len(yIntervals) * len(zIntervals)) - processed
+					msRemaining := float64(remaining) * msPer
+					l.Printf("Processed %d intervals (%fms per; %d hit(s); ~%ds remain)", processed, msPer, len(result), int(msRemaining/1000))
+				}
+
+				cuboidIndices := intersection(xInterval.cuboidIndices, yInterval.cuboidIndices, zInterval.cuboidIndices)
+
+				if len(cuboidIndices) == 0 {
+					continue
+				}
+
+				// later `on` values in `cuboids` override earlier ones
+				lastCuboidIndex := cuboidIndices[len(cuboidIndices)-1]
+				on := cuboids[lastCuboidIndex].on
+				if !on {
+					continue
+				}
+
+				// ok so now we have x, y, and z values
+				c := cuboid{
+					position: point{
+						x: xInterval.start,
+						y: yInterval.start,
+						z: zInterval.start,
+					},
+					size: point{
+						x: xInterval.end - xInterval.start,
+						y: yInterval.end - yInterval.start,
+						z: zInterval.end - zInterval.start,
+					},
+					on: true,
+				}
+
+				result = append(result, c)
+			}
+		}
+	}
+
+	return result
+}
+
+func countCubesOn(cuboids []cuboid) uint {
+	var ct uint
+
+	for _, c := range cuboids {
+		ct += (uint(c.size.x) * uint(c.size.y) * uint(c.size.z))
+	}
+	return ct
 }
 
 // given a set of cuboids along with functions to pull off specific coordinate
 // + extent values (e.g. x and width, y and height, etc.), returns the set of
 // intervals generated.
 func buildIntervals(cuboids []cuboid, getCoordinate func(c cuboid) int, getExtent func(c cuboid) int) []interval {
-	// // these maps connect values to the indices of <steps> that contain those values
-	// values, valuesToStepIndices := buildValueMap(cuboids, func(c cuboid) []int {
-	// 	return []int{
-	// 		getCoordinate(c),
-	// 		getCoordinate(c) + getExtent(c) - 1,
-	// 	}
-	// })
+	// these maps connect values to the indices of <cuboids> that contain those values
+	values, valuesToCuboidIndices := buildValueMap(cuboids, func(c cuboid) []int {
+		return []int{
+			getCoordinate(c),
+			getCoordinate(c) + getExtent(c),
+		}
+	})
 
-	result := []interval{}
+	result := make([]interval, 0)
+
+	// Tracks the cuboid indices that are currently "open"--we have seen their
+	// `start` value but not their `end`
+	openCuboidIndices := make(map[int]bool)
+
+	var currentInterval *interval
+
+	for _, value := range values {
+		if currentInterval == nil {
+			currentInterval = &interval{
+				start: value,
+			}
+
+		} else {
+
+			currentInterval.end = value
+			for i, isOpen := range openCuboidIndices {
+				if isOpen {
+					currentInterval.cuboidIndices = append(currentInterval.cuboidIndices, i)
+				}
+			}
+			sort.Ints(currentInterval.cuboidIndices)
+			result = append(result, *currentInterval)
+
+			currentInterval = &interval{
+				start: value,
+			}
+		}
+
+		for _, cuboidIndex := range valuesToCuboidIndices[value] {
+			openCuboidIndices[cuboidIndex] = !openCuboidIndices[cuboidIndex]
+		}
+	}
+
 	return result
 }
 
@@ -92,93 +238,96 @@ func buildIntervals(cuboids []cuboid, getCoordinate func(c cuboid) int, getExten
 // a sorted slice of those values and a map connecting those values to the
 // cuboid indices that contained those values
 func buildValueMap(cuboids []cuboid, f func(c cuboid) []int) ([]int, map[int][]int) {
-	values := make([]int, 0)
 	valueToIndexMap := make(map[int][]int)
 
 	for cuboidIndex, c := range cuboids {
 		for _, value := range f(c) {
-			valueToIndexMap[value] = append(valueToIndexMap[value], cuboidIndex)
-			values = append(values, value)
+			index := sort.SearchInts(valueToIndexMap[value], cuboidIndex)
+			alreadyPresent := index < len(valueToIndexMap[value]) && valueToIndexMap[value][index] == cuboidIndex
+			if !alreadyPresent {
+				valueToIndexMap[value] = append(valueToIndexMap[value], cuboidIndex)
+				// TODO: Actually insert at the right place
+				sort.Ints(valueToIndexMap[value])
+			}
 		}
 	}
 
+	values := make([]int, 0, len(valueToIndexMap))
+	for value := range valueToIndexMap {
+		values = append(values, value)
+	}
 	sort.Ints(values)
 
 	return values, valueToIndexMap
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Brute force solution
+func intersection(a, b, c []int) []int {
 
-func initializeReactorUsingBruteForce(cuboids []cuboid) *[][][]bool {
-	var reactor *[][][]bool
-	for _, c := range cuboids {
-		reactor = processCuboidUsingBruteForce(c, reactor)
+	// these slices are sorted
+	// if the min of any slice > max of any slice, there is no intersection
+	// if the max of any slice < min of any slice, there is no intersection
+
+	aLen := len(a)
+	bLen := len(b)
+	cLen := len(c)
+
+	aMin := a[0]
+	aMax := a[aLen-1]
+	bMin := b[0]
+	bMax := b[bLen-1]
+	cMin := c[0]
+	cMax := c[cLen-1]
+
+	minLen := aLen
+	if bLen < minLen {
+		minLen = bLen
 	}
-	return reactor
-}
-
-func processCuboidUsingBruteForce(c cuboid, reactor *[][][]bool) *[][][]bool {
-
-	const minX = -50
-	const maxX = 50
-	const minY = -50
-	const maxY = 50
-	const minZ = -50
-	const maxZ = 50
-
-	var workingReactor [][][]bool
-
-	if reactor == nil {
-		width := maxX - minX + 1
-		workingReactor = make([][][]bool, width)
-		for x := 0; x < width; x++ {
-			height := maxY - minY + 1
-			workingReactor[x] = make([][]bool, height)
-			for y := 0; y < height; y++ {
-				depth := maxZ - minZ + 1
-				workingReactor[x][y] = make([]bool, depth)
-			}
-		}
-	} else {
-		workingReactor = *reactor
+	if cLen < minLen {
+		minLen = cLen
 	}
 
-	if c.position.x < minX || c.position.x > maxX || c.position.x+c.size.x > maxX {
-		return &workingReactor
+	if aMin > bMax || aMin > cMax {
+		return []int{}
 	}
 
-	if c.position.y < minY || c.position.y > maxY || c.position.y+c.size.y > maxY {
-		return &workingReactor
+	if bMin > aMax || bMin > cMax {
+		return []int{}
 	}
 
-	if c.position.z < minZ || c.position.z > maxZ || c.position.z+c.size.z > maxZ {
-		return &workingReactor
+	if cMin > aMax || cMin > bMax {
+		return []int{}
 	}
 
-	for x := c.position.x - minX; x < c.position.x+c.size.x-minX; x++ {
-		for y := c.position.y - minY; y < c.position.y+c.size.y-minY; y++ {
-			for z := c.position.z - minZ; z < c.position.z+c.size.z-minZ; z++ {
-				workingReactor[x][y][z] = c.on
-			}
+	m := make(map[int]int)
+
+	for _, value := range a {
+		m[value]++
+		if value > bMax || value > cMax {
+			break
 		}
 	}
 
-	return &workingReactor
-}
-
-func countCubesOnUsingBruteForce(reactor *[][][]bool) uint {
-	var count uint
-	for x := 0; x < len(*reactor); x++ {
-		for y := 0; y < len((*reactor)[x]); y++ {
-			for z := 0; z < len((*reactor)[x][y]); z++ {
-				if (*reactor)[x][y][z] {
-					count++
-				}
-			}
+	for _, value := range b {
+		m[value]++
+		if value > aMax || value > bMax {
+			break
 		}
 	}
-	return count
+
+	result := make([]int, 0, minLen)
+
+	for _, value := range c {
+		m[value]++
+		if m[value] == 3 {
+			result = append(result, value)
+		}
+		if value > aMax || value > bMax {
+			break
+		}
+	}
+
+	return result
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
