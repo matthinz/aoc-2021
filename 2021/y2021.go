@@ -24,8 +24,8 @@ import (
 	d20 "github.com/matthinz/aoc-golang/2021/20"
 	d21 "github.com/matthinz/aoc-golang/2021/21"
 	d22 "github.com/matthinz/aoc-golang/2021/22"
+	d23 "github.com/matthinz/aoc-golang/2021/23"
 	/*
-		d23	"github.com/matthinz/aoc-golang/2021/23"
 		d24	"github.com/matthinz/aoc-golang/2021/24"
 		d25	"github.com/matthinz/aoc-golang/2021/25"
 	*/)
@@ -55,5 +55,6 @@ func New() aoc.Year {
 		d20.New(),
 		d21.New(),
 		d22.New(),
+		d23.New(),
 	)
 }
