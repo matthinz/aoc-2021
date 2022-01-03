@@ -298,32 +298,43 @@ func intersection(a, b, c []int) []int {
 		return []int{}
 	}
 
-	m := make(map[int]int)
-
-	for _, value := range a {
-		m[value]++
-		if value > bMax || value > cMax {
-			break
-		}
-	}
-
-	for _, value := range b {
-		m[value]++
-		if value > aMax || value > bMax {
-			break
-		}
-	}
-
 	result := make([]int, 0, minLen)
 
-	for _, value := range c {
-		m[value]++
-		if m[value] == 3 {
-			result = append(result, value)
-		}
-		if value > aMax || value > bMax {
+	for _, aValue := range a {
+		if aValue > bMax || aValue > cMax {
 			break
 		}
+
+		for _, bValue := range b {
+
+			if bValue > aMax || bValue > cMax {
+				break
+			}
+
+			if bValue > aValue {
+				break
+			}
+
+			if bValue != aValue {
+				continue
+			}
+
+			for _, cValue := range c {
+				if cValue > aMax || cValue > bMax {
+					break
+				}
+
+				if cValue > aValue {
+					break
+				}
+
+				if cValue == aValue {
+					result = append(result, aValue)
+				}
+			}
+
+		}
+
 	}
 
 	return result
