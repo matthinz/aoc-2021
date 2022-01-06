@@ -304,9 +304,194 @@ func TestFindLegalMovesForAmphipodForGuysTuckedDeepInRooms(t *testing.T) {
 		moves = append(moves, m)
 	}
 
-	expected := 1
+	expected := 6
 
 	if len(moves) != expected {
 		t.Errorf("Should've found %d moves, but found %d", expected, len(moves))
 	}
+}
+
+func TestRunThroughExample(t *testing.T) {
+
+	type test struct {
+		input string
+		kind  amphipodKind
+		from  int
+		to    int
+		cost  int
+	}
+
+	tests := []test{
+		{
+			input: `
+				#############
+				#...........#
+				###B#C#B#D###
+					#A#D#C#A#
+					#########
+			`,
+			kind: BronzeAmphipod,
+			from: 15,
+			to:   3,
+			cost: 40,
+		},
+		{
+			input: `
+				#############
+				#...B.......#
+				###B#C#.#D###
+					#A#D#C#A#
+					#########
+			`,
+			kind: CopperAmphipod,
+			from: 13,
+			to:   15,
+			cost: 400,
+		},
+		{
+			input: `
+				#############
+				#...B.......#
+				###B#.#C#D###
+					#A#D#C#A#
+					#########
+			`,
+			kind: DesertAmphipod,
+			from: 14,
+			to:   5,
+			cost: 3000,
+		},
+		{
+			input: `
+				#############
+				#...B.D.....#
+				###B#.#C#D###
+					#A#.#C#A#
+					#########
+			`,
+			kind: BronzeAmphipod,
+			from: 3,
+			to:   14,
+			cost: 30,
+		},
+		{
+			input: `
+				#############
+				#.....D.....#
+				###B#.#C#D###
+					#A#B#C#A#
+					#########
+			`,
+			kind: BronzeAmphipod,
+			from: 11,
+			to:   13,
+			cost: 40,
+		},
+		{
+			input: `
+				#############
+				#.....D.....#
+				###.#B#C#D###
+					#A#B#C#A#
+					#########
+			`,
+			kind: DesertAmphipod,
+			from: 17,
+			to:   7,
+			cost: 2000,
+		},
+		{
+			input: `
+				#############
+				#.....D.D...#
+				###.#B#C#.###
+					#A#B#C#A#
+					#########
+			`,
+			kind: AmberAmphipod,
+			from: 18,
+			to:   9,
+			cost: 3,
+		},
+		{
+			input: `
+				#############
+				#.....D.D.A.#
+				###.#B#C#.###
+					#A#B#C#.#
+					#########
+			`,
+			kind: DesertAmphipod,
+			from: 7,
+			to:   18,
+			cost: 3000,
+		},
+		{
+			input: `
+				#############
+				#.....D...A.#
+				###.#B#C#.###
+					#A#B#C#D#
+					#########
+			`,
+			kind: DesertAmphipod,
+			from: 5,
+			to:   17,
+			cost: 4000,
+		},
+		{
+			input: `
+				#############
+				#.........A.#
+				###.#B#C#D###
+					#A#B#C#D#
+					#########
+			`,
+			kind: AmberAmphipod,
+			from: 9,
+			to:   11,
+			cost: 8,
+		},
+	}
+
+	for testIndex, test := range tests {
+
+		g := parseInput(strings.NewReader(test.input))
+
+		var a *amphipod
+		for check, pos := range g.initialState.positions {
+			if pos == test.from {
+				a = check
+				break
+			}
+		}
+
+		if a == nil {
+			t.Errorf("Test %d: No amphipod found at position %d (expected %s)", testIndex, test.from, string(test.kind))
+		}
+
+		ch := make(chan move)
+		go func() {
+			defer close(ch)
+			findLegalMovesForAmphipod(&g, &g.initialState, a, test.from, ch)
+		}()
+
+		foundMove := false
+
+		for m := range ch {
+			if m.from == test.from && m.to == test.to {
+				if m.cost != test.cost {
+					t.Errorf("Test %d: Found move from %d to %d, but cost was wrong (expected %d, got %d)", testIndex, test.from, test.to, test.cost, m.cost)
+				}
+				foundMove = true
+				break
+			}
+		}
+
+		if !foundMove {
+			t.Errorf("Test %d: Did not find move from %d to %d", testIndex, test.from, test.to)
+		}
+
+	}
+
 }

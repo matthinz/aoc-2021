@@ -36,10 +36,11 @@ type game struct {
 }
 
 type gameState struct {
-	parent    *gameState
-	lastMove  *move
-	totalCost int
-	positions map[*amphipod]int
+	parent     *gameState
+	lastMove   *move
+	totalCost  int
+	totalMoves int
+	positions  map[*amphipod]int
 }
 
 type move struct {
@@ -64,10 +65,23 @@ func New() aoc.Day {
 func Puzzle1(r io.Reader, l *log.Logger) string {
 	g := parseInput(r)
 
-	solvedState := solve(&g, &g.initialState, nil)
+	solvedState, statesEvaluated := solve(&g, &g.initialState, nil, l, 0)
+
+	l.Printf("Evaluated %d total states", statesEvaluated)
 
 	if solvedState == nil {
 		panic("No solution found")
+	}
+
+	var moves []move
+	for s := solvedState; s != nil; s = s.parent {
+		if s.lastMove != nil {
+			moves = append(moves, *s.lastMove)
+		}
+	}
+
+	for i := len(moves) - 1; i >= 0; i-- {
+		fmt.Printf("%d -> %d (%d)\n", moves[i].from, moves[i].to, moves[i].cost)
 	}
 
 	return strconv.Itoa(solvedState.totalCost)
@@ -80,19 +94,26 @@ func Puzzle2(r io.Reader, l *log.Logger) string {
 ////////////////////////////////////////////////////////////////////////////////
 // Part 1 solution
 
-func solve(g *game, state *gameState, bestSolution *gameState) *gameState {
+func solve(g *game, state *gameState, bestSolution *gameState, l *log.Logger, statesEvaluated uint) (*gameState, uint) {
 	moves := getLegalMoves(g, state)
 	for move := range moves {
+		statesEvaluated++
+
+		if bestSolution != nil && state.totalCost+move.cost >= bestSolution.totalCost {
+			continue
+		}
+
 		nextState := applyMove(g, state, move)
-		fmt.Println(stringify(g, nextState))
 		if isSolved(g, nextState) {
 			if bestSolution == nil || nextState.totalCost < bestSolution.totalCost {
 				bestSolution = nextState
+				l.Printf("*** New best solution: %d (%d moves)", bestSolution.totalCost, bestSolution.totalMoves)
 			}
 			continue
 		}
 
-		solution := solve(g, nextState, bestSolution)
+		solution, substatesEvaluated := solve(g, nextState, bestSolution, l, 0)
+		statesEvaluated += substatesEvaluated
 		if solution != nil {
 			if bestSolution == nil || solution.totalCost < bestSolution.totalCost {
 				bestSolution = solution
@@ -100,15 +121,16 @@ func solve(g *game, state *gameState, bestSolution *gameState) *gameState {
 		}
 	}
 
-	return bestSolution
+	return bestSolution, statesEvaluated
 }
 
 func applyMove(g *game, state *gameState, m move) *gameState {
 	nextState := gameState{
-		parent:    state,
-		lastMove:  &m,
-		totalCost: state.totalCost + m.cost,
-		positions: make(map[*amphipod]int),
+		parent:     state,
+		lastMove:   &m,
+		totalCost:  state.totalCost + m.cost,
+		totalMoves: state.totalMoves + 1,
+		positions:  make(map[*amphipod]int),
 	}
 
 	var from *amphipod
@@ -172,8 +194,26 @@ func getLegalMoves(g *game, state *gameState) chan move {
 		defer close(ch)
 
 		for a, pos := range state.positions {
-			findLegalMovesForAmphipod(g, state, a, pos, ch)
+			if a.kind == AmberAmphipod {
+				findLegalMovesForAmphipod(g, state, a, pos, ch)
+			}
 		}
+		for a, pos := range state.positions {
+			if a.kind == BronzeAmphipod {
+				findLegalMovesForAmphipod(g, state, a, pos, ch)
+			}
+		}
+		for a, pos := range state.positions {
+			if a.kind == CopperAmphipod {
+				findLegalMovesForAmphipod(g, state, a, pos, ch)
+			}
+		}
+		for a, pos := range state.positions {
+			if a.kind == DesertAmphipod {
+				findLegalMovesForAmphipod(g, state, a, pos, ch)
+			}
+		}
+
 	}()
 
 	return ch
@@ -191,160 +231,58 @@ func findLegalMovesForAmphipod(g *game, state *gameState, a *amphipod, pos int, 
 		positions[pos] = a
 	}
 
-	destRoomIndex := getDestinationRoomIndex(a)
-	currentRoomIndex, currentRoomY, currentlyInAnyRoom := positionToRoomAndY(g, pos)
-
 	startingPos := pos
-	startedInARoom := currentlyInAnyRoom
-	exitRoomCost := 0
 
-	if currentlyInAnyRoom {
+	// First, try to move the amphipod from a room out into the hallway
 
-		if currentRoomIndex == destRoomIndex {
-			// <a> is in their a destination room. if it is optimally placed
-			// (can't move further into the room) and not obstructing anybody,
-			// it does not need to move any more.
-			deepestOpen := 0
-			blockingSomebody := false
+	movedIntoHallway, hallwayPos, moveToHallwayCost := tryMoveAmphipodFromRoomToHallway(g, a, pos, positions)
 
-			for y := currentRoomY + 1; y < g.roomSize.height; y++ {
-				atY := positions[positionInRoom(g, currentRoomIndex, y)]
-				if atY == nil {
-					// there is nobody at this position, so <a> could move deeper into
-					// its room. this should not happen?
-					deepestOpen = y
-				} else if atY.kind != a.kind {
-					// <a> is blocking another amphipod, and must move out to the hallway
-					blockingSomebody = true
-				}
-			}
-
-			if !blockingSomebody && deepestOpen == 0 {
-				// <a> is optimally placed in its destination
-				return
-			}
-
-			if !blockingSomebody {
-				// <a> is in its destination, but could move deeper in
-				ch <- move{
-					from: pos,
-					to:   positionInRoom(g, currentRoomIndex, deepestOpen),
-					cost: costToMove(a, deepestOpen-currentRoomY),
-				}
-				return
-			}
-
-			// at this point, <a> is blocking someone, and so must move out into the
-			// hallway. we fall through to handle that case
-		}
-
-		// <a> needs to move out of the room it is in.
-		// make sure the way is clear
-		wayIsBlocked := false
-		for y := currentRoomY - 1; y >= 0; y++ {
-			atY := positions[positionInRoom(g, currentRoomIndex, y)]
-			if atY != nil {
-				wayIsBlocked = true
-				break
-			}
-		}
-
-		if wayIsBlocked {
-			// no moves can be made
-			return
-		}
-
-		// we can move the amphipod *at least* to the hallway
-		exitRoomCost += costToMove(a, currentRoomY+1)
-		pos = positionInHallway(g, g.rooms[currentRoomIndex].x)
+	// Update our temporary position map
+	if movedIntoHallway {
+		positions[pos] = nil
+		positions[hallwayPos] = a
+		pos = hallwayPos
 	}
 
-	canEnterDestination := true
-	shallowestBlocker := g.roomSize.height
+	// Then try to move it from hallway to its destination room
 
-	for y := g.roomSize.height - 1; y >= 0; y-- {
-		probePos := positionInRoom(g, destRoomIndex, y)
-		atPos := positions[probePos]
-		if atPos == nil {
-			continue
-		}
+	movedIntoDestinationRoom, destRoomPos, moveToDestRoomCost := tryMoveAmphipodFromHallwayToDestination(g, a, pos, positions)
 
-		if atPos.kind == a.kind {
-			if y < shallowestBlocker {
-				shallowestBlocker = y
-			}
-		} else {
-			canEnterDestination = false
-			break
-		}
-	}
-
-	if shallowestBlocker == 0 {
-		// can't enter because it's plum full up
-		canEnterDestination = false
-	}
-
-	if canEnterDestination {
-		// try to move cleanly from our position in the hallway into the destination room
-
-		hallwayX, currentlyInHallway := positionToHallwayX(g, pos)
-		if !currentlyInHallway {
-			panic("We're not in the hallway? But we should be?")
-		}
-
-		destPos := positionInRoom(g, destRoomIndex, shallowestBlocker-1)
-
-		step := 1
-		if hallwayX < g.rooms[destRoomIndex].x {
-			step = -1
-		}
-
-		canReachDestinationRoom := true
-		for x := hallwayX; x != g.rooms[destRoomIndex].x; x += step {
-			probePos := positionInHallway(g, x)
-			atPos := positions[probePos]
-			if atPos != nil {
-				canReachDestinationRoom = false
-				break
-			}
-		}
-
-		if !canReachDestinationRoom {
-			return
-		}
-
-		// cost to move from current position in hallway to position immediately
-		// above the room
-		hallwayCost := costToMove(
-			a,
-			int(math.Abs(float64(hallwayX-g.rooms[destRoomIndex].x))),
-		)
-
-		enterRoomCost := costToMove(
-			a,
-			shallowestBlocker, // includes 1 step to move from hallway into room
-		)
-
+	if movedIntoDestinationRoom {
+		// We made it to the best place in the destination room, and this is the only move that matters.
 		ch <- move{
 			from: startingPos,
-			to:   destPos,
-			cost: exitRoomCost + hallwayCost + enterRoomCost,
+			to:   destRoomPos,
+			cost: moveToHallwayCost + moveToDestRoomCost,
 		}
-
 		return
 	}
 
-	// When we can't enter the destination, if we started in the hallway, then
-	// we can't actually do *anything* at all
-	if !startedInARoom {
+	if movedIntoHallway {
+		// We need to move this amphipod to a valid place in the hallway, otherwise it won't stick
+		accessibleHallwayPositions := tryMoveAmphipodToValidPositionInHallway(g, a, hallwayPos, positions)
+		for _, newHallwayPos := range accessibleHallwayPositions {
+			ch <- move{
+				from: startingPos,
+				to:   newHallwayPos,
+				cost: moveToHallwayCost + costToMove(a, int(math.Abs(float64(hallwayPos-newHallwayPos)))),
+			}
+		}
 		return
 	}
 
-	// Ok, so we can't enter the destination, but we need to try to move
-	// *somewhere* in the hallway.
-	hallwayX, currentlyInHallway := positionToHallwayX(g, pos)
-	if !currentlyInHallway {
-		panic("We're not in the hallway? But we should be?")
+}
+
+// attempts to move <a> from <hallwayPos> to another position in the hallway
+// returns a slice of positions in the hallway that <a> can move to
+func tryMoveAmphipodToValidPositionInHallway(g *game, a *amphipod, pos int, positions []*amphipod) []int {
+
+	hallwayX, isInHallway := positionToHallwayX(g, pos)
+
+	var accessiblePositions []int
+
+	if !isInHallway {
+		return accessiblePositions
 	}
 
 	canMoveLeft := true
@@ -358,18 +296,26 @@ func findLegalMovesForAmphipod(g *game, state *gameState, a *amphipod, pos int, 
 		// try moving left
 		if canMoveLeft {
 			probeX := hallwayX - deltaX
+
 			if probeX >= 0 {
-				probePos := positionInHallway(g, probeX)
-				atProbePos := positions[probePos]
-				if atProbePos == nil {
-					// nobody at this position, ok to move
-					ch <- move{
-						from: startingPos,
-						to:   probePos,
-						cost: exitRoomCost + costToMove(a, deltaX),
+
+				isAtRoomEntrance := false
+				for i := range g.rooms {
+					if g.rooms[i].x == probeX {
+						isAtRoomEntrance = true
+						break
 					}
-				} else {
-					canMoveLeft = false
+				}
+				// amphipods are not allowed to stop right outside a room
+				if !isAtRoomEntrance {
+
+					probePos := positionInHallway(g, probeX)
+					atProbePos := positions[probePos]
+					if atProbePos == nil {
+						accessiblePositions = append(accessiblePositions, probePos)
+					} else {
+						canMoveLeft = false
+					}
 				}
 			}
 		}
@@ -377,21 +323,174 @@ func findLegalMovesForAmphipod(g *game, state *gameState, a *amphipod, pos int, 
 		if canMoveRight {
 			probeX := hallwayX + deltaX
 			if probeX < g.hallway.width {
-				probePos := positionInHallway(g, probeX)
-				atProbePos := positions[probePos]
-				if atProbePos == nil {
-					// nobody at this position, ok to move
-					ch <- move{
-						from: startingPos,
-						to:   probePos,
-						cost: exitRoomCost + costToMove(a, deltaX),
+
+				isAtRoomEntrance := false
+				for i := range g.rooms {
+					if g.rooms[i].x == probeX {
+						isAtRoomEntrance = true
+						break
 					}
-				} else {
-					canMoveRight = false
+				}
+
+				if !isAtRoomEntrance {
+					probePos := positionInHallway(g, probeX)
+					atProbePos := positions[probePos]
+					if atProbePos == nil {
+						accessiblePositions = append(accessiblePositions, probePos)
+					} else {
+						canMoveRight = false
+					}
 				}
 			}
 		}
 	}
+
+	return accessiblePositions
+}
+
+// attempts to move an amphipod out of a room and into a hallway.
+// returns flag indicating success, new hallway position, and cost of move into hallway
+func tryMoveAmphipodFromRoomToHallway(g *game, a *amphipod, pos int, positions []*amphipod) (bool, int, int) {
+
+	currentRoomIndex, currentRoomY, currentlyInAnyRoom := positionToRoomAndY(g, pos)
+
+	if !currentlyInAnyRoom {
+		// we can't move into a hallway if we're not in a room
+		return false, 0, 0
+	}
+
+	destRoomIndex := getDestinationRoomIndex(a)
+
+	if currentRoomIndex == destRoomIndex {
+		// <a> is in their a destination room.
+		// It will not need to move into the hallway unless it is blocking someone
+		// else from getting out of the room
+
+		isBlockingSomebody := false
+
+		for y := currentRoomY + 1; y < g.roomSize.height; y++ {
+			probePos := positionInRoom(g, currentRoomIndex, y)
+			atProbePos := positions[probePos]
+
+			if atProbePos != nil && atProbePos.kind != a.kind {
+				// <a> is blocking another amphipod, and must move out to the hallway
+				isBlockingSomebody = true
+				break
+			}
+		}
+
+		if !isBlockingSomebody {
+			// <a> is in its destination and is not blocking anybody, so it does
+			// not need to move into the hallway
+			return false, 0, 0
+		}
+	}
+
+	// At this point, <a> needs to move into the hallway--either to advance to
+	// its destination room or to clear the way for someone else to get out of
+	// its current room.
+
+	theWayOutIsBlocked := false
+	for y := currentRoomY - 1; y >= 0; y-- {
+		yPos := positionInRoom(g, currentRoomIndex, y)
+		atY := positions[yPos]
+		if atY != nil && atY != a {
+			theWayOutIsBlocked = true
+			break
+		}
+	}
+
+	if theWayOutIsBlocked {
+		// <a> cannot exit the room because someone else is in the way
+		return false, 0, 0
+	}
+
+	// <a> can move out of its current room and into the hallway!
+	// we move it out to the space immediately outside its room. this is not a
+	// legal position in the long run, but that is a problem for some other
+	// function.
+
+	exitRoomCost := costToMove(a, currentRoomY+1)
+	hallwayPos := positionInHallway(g, g.rooms[currentRoomIndex].x)
+
+	return true, hallwayPos, exitRoomCost
+}
+
+// attempts to move an amphipod in the hallway into its destination room
+// returns whether the move succeeded, the resulting position, and the cost
+func tryMoveAmphipodFromHallwayToDestination(g *game, a *amphipod, pos int, positions []*amphipod) (bool, int, int) {
+
+	x, isInHallway := positionToHallwayX(g, pos)
+
+	if !isInHallway {
+		return false, 0, 0
+	}
+
+	destRoomIndex := getDestinationRoomIndex(a)
+	destRoomEntranceX := g.rooms[destRoomIndex].x
+
+	step := 1
+	if x > destRoomEntranceX {
+		// need to move to the left
+		step = -1
+	}
+
+	canReachDestinationRoom := true
+	for probeX := x + step; probeX != destRoomEntranceX; probeX += step {
+		if x < 0 || x >= g.hallway.width {
+			break
+		}
+		probePos := positionInHallway(g, probeX)
+		atPos := positions[probePos]
+
+		if atPos != nil {
+			// Someone is in the way
+			canReachDestinationRoom = false
+			break
+		}
+	}
+
+	if !canReachDestinationRoom {
+		return false, 0, 0
+	}
+
+	// Ok, we can reach it, but can we enter it?
+
+	otherKindOfAmphipodInRoom := false
+	shallowestBlocker := g.roomSize.height
+
+	// Move through the room and look for amphipods of any other kind as well
+	// as amphipods of the same kind that may be blocking the way
+	for probeY := g.roomSize.height - 1; probeY >= 0; probeY-- {
+		probePos := positionInRoom(g, destRoomIndex, probeY)
+		atProbePos := positions[probePos]
+		if atProbePos == nil {
+			continue
+		}
+
+		if atProbePos.kind == a.kind {
+			shallowestBlocker = probeY
+		} else {
+			otherKindOfAmphipodInRoom = true
+			break
+		}
+	}
+
+	if otherKindOfAmphipodInRoom {
+		return false, 0, 0
+	}
+
+	if shallowestBlocker == 0 {
+		// can't enter the room because it's blocked by an amphipod of the same kind
+		return false, 0, 0
+	}
+
+	destPos := positionInRoom(g, destRoomIndex, shallowestBlocker-1)
+
+	costToGetToRoomEntrance := costToMove(a, int(math.Abs(float64(destRoomEntranceX-x))))
+	costToEnterRoom := costToMove(a, shallowestBlocker)
+
+	return true, destPos, costToGetToRoomEntrance + costToEnterRoom
 }
 
 func isSolved(g *game, state *gameState) bool {
