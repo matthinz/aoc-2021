@@ -16,12 +16,8 @@ func TestParseInputStarting(t *testing.T) {
 		`
 	g := parseInput(strings.NewReader(input))
 
-	if g.hallway.height != 1 {
-		t.Fatalf("Hallway height should not be %d", g.hallway.height)
-	}
-
-	if g.hallway.width != 11 {
-		t.Fatalf("Hallway width should not be %d", g.hallway.width)
+	if g.hallwayWidth != 11 {
+		t.Fatalf("Hallway width should not be %d", g.hallwayWidth)
 	}
 
 	if len(g.rooms) != 4 {
@@ -79,12 +75,8 @@ func TestParseInputLater(t *testing.T) {
 		`
 	g := parseInput(strings.NewReader(input))
 
-	if g.hallway.height != 1 {
-		t.Fatalf("Hallway height should not be %d", g.hallway.height)
-	}
-
-	if g.hallway.width != 11 {
-		t.Fatalf("Hallway width should not be %d", g.hallway.width)
+	if g.hallwayWidth != 11 {
+		t.Fatalf("Hallway width should not be %d", g.hallwayWidth)
 	}
 
 	if len(g.rooms) != 4 {
@@ -255,7 +247,7 @@ func TestFindLegalMovesForAmphipodInFirstPosition(t *testing.T) {
 		moves = append(moves, m)
 	}
 
-	expected := 10
+	expected := 7
 
 	if len(moves) != expected {
 		t.Errorf("Should've found %d moves, but found %d", expected, len(moves))
@@ -304,7 +296,7 @@ func TestFindLegalMovesForAmphipodForGuysTuckedDeepInRooms(t *testing.T) {
 		moves = append(moves, m)
 	}
 
-	expected := 6
+	expected := 3
 
 	if len(moves) != expected {
 		t.Errorf("Should've found %d moves, but found %d", expected, len(moves))

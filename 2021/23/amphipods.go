@@ -29,9 +29,9 @@ type room struct {
 }
 
 type game struct {
-	hallway      size
+	hallwayWidth int
+	roomHeight   int
 	rooms        []room
-	roomSize     size
 	initialState gameState
 }
 
@@ -225,7 +225,7 @@ func findLegalMovesForAmphipod(g *game, state *gameState, a *amphipod, pos int, 
 	// so we can easily probe by position
 	positions := make(
 		[]*amphipod,
-		(g.hallway.width*g.hallway.height)+len(g.rooms)*(g.roomSize.width*g.roomSize.height),
+		g.hallwayWidth+(len(g.rooms)*g.roomHeight),
 	)
 	for a, pos := range state.positions {
 		positions[pos] = a
@@ -288,7 +288,7 @@ func tryMoveAmphipodToValidPositionInHallway(g *game, a *amphipod, pos int, posi
 	canMoveLeft := true
 	canMoveRight := true
 
-	for deltaX := 1; deltaX < g.hallway.width; deltaX++ {
+	for deltaX := 1; deltaX < g.hallwayWidth; deltaX++ {
 		if !(canMoveLeft || canMoveRight) {
 			break
 		}
@@ -322,7 +322,7 @@ func tryMoveAmphipodToValidPositionInHallway(g *game, a *amphipod, pos int, posi
 		// try moving right
 		if canMoveRight {
 			probeX := hallwayX + deltaX
-			if probeX < g.hallway.width {
+			if probeX < g.hallwayWidth {
 
 				isAtRoomEntrance := false
 				for i := range g.rooms {
@@ -368,7 +368,7 @@ func tryMoveAmphipodFromRoomToHallway(g *game, a *amphipod, pos int, positions [
 
 		isBlockingSomebody := false
 
-		for y := currentRoomY + 1; y < g.roomSize.height; y++ {
+		for y := currentRoomY + 1; y < g.roomHeight; y++ {
 			probePos := positionInRoom(g, currentRoomIndex, y)
 			atProbePos := positions[probePos]
 
@@ -437,7 +437,7 @@ func tryMoveAmphipodFromHallwayToDestination(g *game, a *amphipod, pos int, posi
 
 	canReachDestinationRoom := true
 	for probeX := x + step; probeX != destRoomEntranceX; probeX += step {
-		if x < 0 || x >= g.hallway.width {
+		if x < 0 || x >= g.hallwayWidth {
 			break
 		}
 		probePos := positionInHallway(g, probeX)
@@ -457,11 +457,11 @@ func tryMoveAmphipodFromHallwayToDestination(g *game, a *amphipod, pos int, posi
 	// Ok, we can reach it, but can we enter it?
 
 	otherKindOfAmphipodInRoom := false
-	shallowestBlocker := g.roomSize.height
+	shallowestBlocker := g.roomHeight
 
 	// Move through the room and look for amphipods of any other kind as well
 	// as amphipods of the same kind that may be blocking the way
-	for probeY := g.roomSize.height - 1; probeY >= 0; probeY-- {
+	for probeY := g.roomHeight - 1; probeY >= 0; probeY-- {
 		probePos := positionInRoom(g, destRoomIndex, probeY)
 		atProbePos := positions[probePos]
 		if atProbePos == nil {
@@ -523,38 +523,36 @@ func stringify(g *game, state *gameState) string {
 
 	positions := make(
 		[]*amphipod,
-		(g.hallway.width*g.hallway.height)+len(g.rooms)*(g.roomSize.width*g.roomSize.height),
+		g.hallwayWidth+(len(g.rooms)*g.roomHeight),
 	)
 
 	for a, pos := range state.positions {
 		positions[pos] = a
 	}
 
-	for i := 0; i < g.hallway.width+2; i++ {
+	for i := 0; i < g.hallwayWidth+2; i++ {
 		b.WriteRune(wall)
 	}
 	b.WriteRune('\n')
 
-	for y := 0; y < g.hallway.height; y++ {
-		b.WriteRune(wall)
-		for x := 0; x < g.hallway.width; x++ {
-			pos := positionInHallway(g, x)
-			atPos := positions[pos]
-			if atPos == nil {
-				b.WriteRune(open)
-			} else {
-				b.WriteRune(rune(atPos.kind))
-			}
+	b.WriteRune(wall)
+	for x := 0; x < g.hallwayWidth; x++ {
+		pos := positionInHallway(g, x)
+		atPos := positions[pos]
+		if atPos == nil {
+			b.WriteRune(open)
+		} else {
+			b.WriteRune(rune(atPos.kind))
 		}
-		b.WriteRune(wall)
-		b.WriteRune('\n')
 	}
+	b.WriteRune(wall)
+	b.WriteRune('\n')
 
-	for y := 0; y < g.roomSize.height; y++ {
+	for y := 0; y < g.roomHeight; y++ {
 
 		b.WriteRune(wall)
 
-		for x := 0; x < g.hallway.width; x++ {
+		for x := 0; x < g.hallwayWidth; x++ {
 			var room *room
 			for i := range g.rooms {
 				if g.rooms[i].x == x {
@@ -581,7 +579,7 @@ func stringify(g *game, state *gameState) string {
 		b.WriteRune('\n')
 	}
 
-	for x := 0; x < g.hallway.width+2; x++ {
+	for x := 0; x < g.hallwayWidth+2; x++ {
 		b.WriteRune(wall)
 	}
 
@@ -614,7 +612,7 @@ func amphipodInRoom(g *game, state *gameState, x, y int) *amphipod {
 }
 
 func positionInRoom(g *game, roomIndex int, y int) int {
-	return (g.hallway.width * g.hallway.height) + (roomIndex * (g.roomSize.width * g.roomSize.height)) + y
+	return g.hallwayWidth + (roomIndex * g.roomHeight) + y
 }
 
 func positionInHallway(g *game, x int) int {
@@ -622,23 +620,20 @@ func positionInHallway(g *game, x int) int {
 }
 
 func positionToRoomAndY(g *game, pos int) (int, int, bool) {
-	hallwayArea := g.hallway.width * g.hallway.height
-	if pos < hallwayArea {
+	if pos < g.hallwayWidth {
 		return 0, 0, false
 	}
 
-	pos -= hallwayArea
+	pos -= g.hallwayWidth
 
-	roomArea := (g.roomSize.width * g.roomSize.height)
-	y := pos % roomArea
-	roomIndex := (pos - y) / roomArea
+	y := pos % g.roomHeight
+	roomIndex := (pos - y) / g.roomHeight
 
 	return roomIndex, y, true
 }
 
 func positionToHallwayX(g *game, pos int) (int, bool) {
-	hallwayArea := g.hallway.width * g.hallway.height
-	if pos < hallwayArea {
+	if pos < g.hallwayWidth {
 		return pos, true
 	}
 	return 0, false
@@ -652,8 +647,8 @@ func parseInput(r io.Reader) game {
 	s := bufio.NewScanner(r)
 
 	g := game{
-		hallway:  size{},
-		roomSize: size{width: 1, height: 2},
+		hallwayWidth: 0,
+		roomHeight:   2,
 		initialState: gameState{
 			positions: make(map[*amphipod]int),
 		},
@@ -675,28 +670,27 @@ func parseInput(r io.Reader) game {
 		isRoomLine, _ := regexp.MatchString("^(\\s|#)*#((\\.|[ABCD])#)+", line)
 
 		if !isRoomLine {
-			g.hallway.height++
 			for _, r := range line {
 				if r == '.' {
 					// empty slot in hallway
-					g.hallway.width++
+					g.hallwayWidth++
 				}
 
 				if r == rune(AmberAmphipod) || r == rune(BronzeAmphipod) || r == rune(CopperAmphipod) || r == rune(DesertAmphipod) {
 					// an amphipod in the hallway
-					g.hallway.width++
+					g.hallwayWidth++
 					a := amphipod{
 						kind: amphipodKind(r),
 					}
 					// TODO: 2d hallway
-					g.initialState.positions[&a] = g.hallway.width - 1
+					g.initialState.positions[&a] = g.hallwayWidth - 1
 				}
 
 			}
 			continue
 		}
 
-		if g.hallway.width == 0 {
+		if g.hallwayWidth == 0 {
 			continue
 		}
 
