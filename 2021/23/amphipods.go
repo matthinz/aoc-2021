@@ -88,7 +88,31 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 }
 
 func Puzzle2(r io.Reader, l *log.Logger) string {
-	return ""
+
+	input := unfoldDiagram(r)
+
+	g := parseInput(strings.NewReader(input))
+
+	solvedState, statesEvaluated := solve(&g, &g.initialState, nil, l, 0)
+
+	l.Printf("Evaluated %d total states", statesEvaluated)
+
+	if solvedState == nil {
+		panic("No solution found")
+	}
+
+	var moves []move
+	for s := solvedState; s != nil; s = s.parent {
+		if s.lastMove != nil {
+			moves = append(moves, *s.lastMove)
+		}
+	}
+
+	for i := len(moves) - 1; i >= 0; i-- {
+		fmt.Printf("%d -> %d (%d)\n", moves[i].from, moves[i].to, moves[i].cost)
+	}
+
+	return strconv.Itoa(solvedState.totalCost)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -635,15 +659,11 @@ func parseInput(r io.Reader) game {
 	s := bufio.NewScanner(r)
 
 	g := game{
-		hallwayWidth: 0,
-		roomHeight:   2,
 		initialState: gameState{},
 	}
 
 	var hallwayAmphipods []parsedHallwayAmphipod
 	var roomAmphipods []parsedRoomAmphipod
-
-	roomY := 0
 
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
@@ -711,7 +731,7 @@ func parseInput(r io.Reader) game {
 				roomAmphipods = append(roomAmphipods, parsedRoomAmphipod{
 					kind:      amphipodKind(r),
 					roomIndex: roomIndex,
-					y:         roomY,
+					y:         g.roomHeight,
 				})
 				roomIndex++
 
@@ -720,7 +740,7 @@ func parseInput(r io.Reader) game {
 			}
 		}
 
-		roomY++
+		g.roomHeight++
 	}
 
 	totalPositions := g.hallwayWidth + (len(g.rooms) * g.roomHeight)
@@ -743,4 +763,24 @@ func parseInput(r io.Reader) game {
 	}
 
 	return g
+}
+
+func unfoldDiagram(r io.Reader) string {
+	var lines []string
+	s := bufio.NewScanner(r)
+	for s.Scan() {
+		line := s.Text()
+		if len(strings.TrimSpace(line)) == 0 {
+			continue
+		}
+
+		if len(lines) == 3 {
+			lines = append(lines, "  #D#C#B#A#")
+			lines = append(lines, "  #D#B#A#C#")
+		}
+
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, "\n")
 }

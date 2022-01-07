@@ -501,3 +501,32 @@ func TestIsSolvedSuccess(t *testing.T) {
 	}
 
 }
+
+func TestUnfoldDiagram(t *testing.T) {
+
+	input := `
+#############
+#...........#
+###B#C#B#D###
+  #A#D#C#A#
+  #########
+	`
+
+	expected := strings.TrimSpace(`
+#############
+#...........#
+###B#C#B#D###
+  #D#C#B#A#
+  #D#B#A#C#
+  #A#D#C#A#
+  #########
+	`)
+
+	unfolded := unfoldDiagram(strings.NewReader(input))
+
+	if unfolded != expected {
+		t.Log(unfolded)
+		t.Fatalf("Unfold did not work!")
+	}
+
+}
