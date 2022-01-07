@@ -1,7 +1,6 @@
 package d23
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -49,7 +48,7 @@ func TestParseInputStarting(t *testing.T) {
 
 	for expectedPos, expectedKind := range expectedThings {
 		found := false
-		for a, actualPos := range g.initialState.positions {
+		for actualPos, a := range g.initialState.positions {
 			if actualPos == expectedPos {
 				found = true
 				if a.kind != expectedKind {
@@ -108,7 +107,7 @@ func TestParseInputLater(t *testing.T) {
 
 	for expectedPos, expectedKind := range expectedThings {
 		found := false
-		for a, actualPos := range g.initialState.positions {
+		for actualPos, a := range g.initialState.positions {
 			if actualPos == expectedPos {
 				found = true
 				if a.kind != expectedKind {
@@ -221,7 +220,7 @@ func TestFindLegalMovesForAmphipodInFirstPosition(t *testing.T) {
 	var target *amphipod
 	const targetPos = 13
 
-	for a, pos := range g.initialState.positions {
+	for pos, a := range g.initialState.positions {
 		if pos == targetPos {
 			if a.kind != AmberAmphipod {
 				t.Fatalf("Expected pos %d to have amber, had %s", targetPos, string(a.kind))
@@ -243,7 +242,6 @@ func TestFindLegalMovesForAmphipodInFirstPosition(t *testing.T) {
 
 	moves := make([]move, 0)
 	for m := range ch {
-		fmt.Println(m)
 		moves = append(moves, m)
 	}
 
@@ -268,9 +266,9 @@ func TestFindLegalMovesForAmphipodForGuysTuckedDeepInRooms(t *testing.T) {
 	var target *amphipod
 	const targetPos = 12
 
-	fmt.Println(stringify(&g, &g.initialState))
+	// fmt.Println(stringify(&g, &g.initialState))
 
-	for a, pos := range g.initialState.positions {
+	for pos, a := range g.initialState.positions {
 		if pos == targetPos {
 			if a.kind != BronzeAmphipod {
 				t.Fatalf("Expected pos %d to have bronze, had %s", targetPos, string(a.kind))
@@ -292,7 +290,6 @@ func TestFindLegalMovesForAmphipodForGuysTuckedDeepInRooms(t *testing.T) {
 
 	moves := make([]move, 0)
 	for m := range ch {
-		fmt.Println(m)
 		moves = append(moves, m)
 	}
 
@@ -451,7 +448,7 @@ func TestRunThroughExample(t *testing.T) {
 		g := parseInput(strings.NewReader(test.input))
 
 		var a *amphipod
-		for check, pos := range g.initialState.positions {
+		for pos, check := range g.initialState.positions {
 			if pos == test.from {
 				a = check
 				break
@@ -484,6 +481,23 @@ func TestRunThroughExample(t *testing.T) {
 			t.Errorf("Test %d: Did not find move from %d to %d", testIndex, test.from, test.to)
 		}
 
+	}
+
+}
+
+func TestIsSolvedSuccess(t *testing.T) {
+	input := `
+	#############
+	#...........#
+	###A#B#C#D###
+		#A#B#C#D#
+		#########
+	`
+
+	g := parseInput(strings.NewReader(input))
+
+	if !isSolved(&g, &g.initialState) {
+		t.Errorf("Should detect solved state")
 	}
 
 }

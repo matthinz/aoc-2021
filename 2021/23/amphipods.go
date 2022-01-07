@@ -40,7 +40,7 @@ type gameState struct {
 	lastMove   *move
 	totalCost  int
 	totalMoves int
-	positions  map[*amphipod]int
+	positions  []*amphipod
 }
 
 type move struct {
@@ -130,24 +130,12 @@ func applyMove(g *game, state *gameState, m move) *gameState {
 		lastMove:   &m,
 		totalCost:  state.totalCost + m.cost,
 		totalMoves: state.totalMoves + 1,
-		positions:  make(map[*amphipod]int),
+		positions:  make([]*amphipod, len(state.positions)),
 	}
 
-	var from *amphipod
-
-	for a, pos := range state.positions {
-		if pos == m.from {
-			from = a
-		} else {
-			nextState.positions[a] = pos
-		}
-	}
-
-	if from == nil {
-		panic("can't move nothing?")
-	}
-
-	nextState.positions[from] = m.to
+	copy(nextState.positions, state.positions)
+	nextState.positions[m.to] = nextState.positions[m.from]
+	nextState.positions[m.from] = nil
 
 	return &nextState
 }
@@ -193,23 +181,23 @@ func getLegalMoves(g *game, state *gameState) chan move {
 	go func() {
 		defer close(ch)
 
-		for a, pos := range state.positions {
-			if a.kind == AmberAmphipod {
+		for pos, a := range state.positions {
+			if a != nil && a.kind == AmberAmphipod {
 				findLegalMovesForAmphipod(g, state, a, pos, ch)
 			}
 		}
-		for a, pos := range state.positions {
-			if a.kind == BronzeAmphipod {
+		for pos, a := range state.positions {
+			if a != nil && a.kind == BronzeAmphipod {
 				findLegalMovesForAmphipod(g, state, a, pos, ch)
 			}
 		}
-		for a, pos := range state.positions {
-			if a.kind == CopperAmphipod {
+		for pos, a := range state.positions {
+			if a != nil && a.kind == CopperAmphipod {
 				findLegalMovesForAmphipod(g, state, a, pos, ch)
 			}
 		}
-		for a, pos := range state.positions {
-			if a.kind == DesertAmphipod {
+		for pos, a := range state.positions {
+			if a != nil && a.kind == DesertAmphipod {
 				findLegalMovesForAmphipod(g, state, a, pos, ch)
 			}
 		}
@@ -221,32 +209,26 @@ func getLegalMoves(g *game, state *gameState) chan move {
 
 func findLegalMovesForAmphipod(g *game, state *gameState, a *amphipod, pos int, ch chan move) {
 
-	// generate a slice mapping position indices to amphipods contained
-	// so we can easily probe by position
-	positions := make(
-		[]*amphipod,
-		g.hallwayWidth+(len(g.rooms)*g.roomHeight),
-	)
-	for a, pos := range state.positions {
-		positions[pos] = a
-	}
+	workingPositions := state.positions
 
 	startingPos := pos
 
 	// First, try to move the amphipod from a room out into the hallway
 
-	movedIntoHallway, hallwayPos, moveToHallwayCost := tryMoveAmphipodFromRoomToHallway(g, a, pos, positions)
+	movedIntoHallway, hallwayPos, moveToHallwayCost := tryMoveAmphipodFromRoomToHallway(g, a, pos, workingPositions)
 
 	// Update our temporary position map
 	if movedIntoHallway {
-		positions[pos] = nil
-		positions[hallwayPos] = a
+		workingPositions = make([]*amphipod, len(state.positions))
+		copy(workingPositions, state.positions)
+		workingPositions[pos] = nil
+		workingPositions[hallwayPos] = a
 		pos = hallwayPos
 	}
 
 	// Then try to move it from hallway to its destination room
 
-	movedIntoDestinationRoom, destRoomPos, moveToDestRoomCost := tryMoveAmphipodFromHallwayToDestination(g, a, pos, positions)
+	movedIntoDestinationRoom, destRoomPos, moveToDestRoomCost := tryMoveAmphipodFromHallwayToDestination(g, a, pos, workingPositions)
 
 	if movedIntoDestinationRoom {
 		// We made it to the best place in the destination room, and this is the only move that matters.
@@ -260,7 +242,7 @@ func findLegalMovesForAmphipod(g *game, state *gameState, a *amphipod, pos int, 
 
 	if movedIntoHallway {
 		// We need to move this amphipod to a valid place in the hallway, otherwise it won't stick
-		accessibleHallwayPositions := tryMoveAmphipodToValidPositionInHallway(g, a, hallwayPos, positions)
+		accessibleHallwayPositions := tryMoveAmphipodToValidPositionInHallway(g, a, hallwayPos, workingPositions)
 		for _, newHallwayPos := range accessibleHallwayPositions {
 			ch <- move{
 				from: startingPos,
@@ -495,7 +477,11 @@ func tryMoveAmphipodFromHallwayToDestination(g *game, a *amphipod, pos int, posi
 
 func isSolved(g *game, state *gameState) bool {
 
-	for a, pos := range state.positions {
+	for pos, a := range state.positions {
+
+		if a == nil {
+			continue
+		}
 
 		roomIndex, _, inRoomAtAll := positionToRoomAndY(g, pos)
 
@@ -521,15 +507,6 @@ func stringify(g *game, state *gameState) string {
 	const blank = ' '
 	const open = '.'
 
-	positions := make(
-		[]*amphipod,
-		g.hallwayWidth+(len(g.rooms)*g.roomHeight),
-	)
-
-	for a, pos := range state.positions {
-		positions[pos] = a
-	}
-
 	for i := 0; i < g.hallwayWidth+2; i++ {
 		b.WriteRune(wall)
 	}
@@ -538,7 +515,7 @@ func stringify(g *game, state *gameState) string {
 	b.WriteRune(wall)
 	for x := 0; x < g.hallwayWidth; x++ {
 		pos := positionInHallway(g, x)
-		atPos := positions[pos]
+		atPos := state.positions[pos]
 		if atPos == nil {
 			b.WriteRune(open)
 		} else {
@@ -602,7 +579,7 @@ func amphipodInRoom(g *game, state *gameState, x, y int) *amphipod {
 
 	pos := positionInRoom(g, roomIndex, y)
 
-	for a, candidatePos := range state.positions {
+	for candidatePos, a := range state.positions {
 		if candidatePos == pos {
 			return a
 		}
@@ -644,15 +621,27 @@ func positionToHallwayX(g *game, pos int) (int, bool) {
 
 func parseInput(r io.Reader) game {
 
+	type parsedHallwayAmphipod struct {
+		kind amphipodKind
+		x    int
+	}
+
+	type parsedRoomAmphipod struct {
+		kind      amphipodKind
+		roomIndex int
+		y         int
+	}
+
 	s := bufio.NewScanner(r)
 
 	g := game{
 		hallwayWidth: 0,
 		roomHeight:   2,
-		initialState: gameState{
-			positions: make(map[*amphipod]int),
-		},
+		initialState: gameState{},
 	}
+
+	var hallwayAmphipods []parsedHallwayAmphipod
+	var roomAmphipods []parsedRoomAmphipod
 
 	roomY := 0
 
@@ -679,11 +668,10 @@ func parseInput(r io.Reader) game {
 				if r == rune(AmberAmphipod) || r == rune(BronzeAmphipod) || r == rune(CopperAmphipod) || r == rune(DesertAmphipod) {
 					// an amphipod in the hallway
 					g.hallwayWidth++
-					a := amphipod{
+					hallwayAmphipods = append(hallwayAmphipods, parsedHallwayAmphipod{
 						kind: amphipodKind(r),
-					}
-					// TODO: 2d hallway
-					g.initialState.positions[&a] = g.hallwayWidth - 1
+						x:    g.hallwayWidth - 1,
+					})
 				}
 
 			}
@@ -720,12 +708,11 @@ func parseInput(r io.Reader) game {
 					})
 				}
 
-				a := amphipod{
-					kind: amphipodKind(r),
-				}
-
-				g.initialState.positions[&a] = positionInRoom(&g, roomIndex, roomY)
-
+				roomAmphipods = append(roomAmphipods, parsedRoomAmphipod{
+					kind:      amphipodKind(r),
+					roomIndex: roomIndex,
+					y:         roomY,
+				})
 				roomIndex++
 
 			default:
@@ -734,6 +721,25 @@ func parseInput(r io.Reader) game {
 		}
 
 		roomY++
+	}
+
+	totalPositions := g.hallwayWidth + (len(g.rooms) * g.roomHeight)
+	g.initialState.positions = make([]*amphipod, totalPositions)
+
+	for _, h := range hallwayAmphipods {
+		a := amphipod{
+			kind: h.kind,
+		}
+		pos := positionInHallway(&g, h.x)
+		g.initialState.positions[pos] = &a
+	}
+
+	for _, r := range roomAmphipods {
+		a := amphipod{
+			kind: r.kind,
+		}
+		pos := positionInRoom(&g, r.roomIndex, r.y)
+		g.initialState.positions[pos] = &a
 	}
 
 	return g
