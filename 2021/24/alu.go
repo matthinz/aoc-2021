@@ -21,9 +21,7 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 
 	reg := parseInput(r)
 
-	inputs, err := reg.z.FindInputs(0, func(a, b map[int]int) (map[int]int, error) {
-		panic("NOT IMPLEMENTED")
-	})
+	inputs, err := reg.z.FindInputs(0, PreferInputsThatMakeLargerNumber)
 
 	if err != nil {
 		panic(err)

@@ -12,7 +12,98 @@ func TestMultiplyExpressionEvaluate(t *testing.T) {
 }
 
 func TestMultiplyExpressionFindInputs(t *testing.T) {
-	t.Skip()
+	type findInputsTest struct {
+		name        string
+		lhs         Expression
+		rhs         Expression
+		target      int
+		decider     InputDecider
+		expected    []int
+		expectError bool
+	}
+
+	tests := []findInputsTest{
+		{
+			name:     "LhsLiteralRhsInput",
+			lhs:      NewLiteralExpression(5),
+			rhs:      NewInputExpression(0),
+			target:   15,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{3},
+		},
+		{
+			name:     "LhsInputRhsLiteral",
+			lhs:      NewInputExpression(0),
+			rhs:      NewLiteralExpression(5),
+			target:   15,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{3},
+		},
+		{
+			name:     "TwoInputsThatMustBeEqual",
+			lhs:      NewInputExpression(0),
+			rhs:      NewInputExpression(0),
+			target:   16,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{4},
+		},
+		{
+			name:     "TwoInputsThatMakeLargestNumber",
+			lhs:      NewInputExpression(0),
+			rhs:      NewInputExpression(1),
+			target:   12,
+			decider:  PreferInputsThatMakeLargerNumber,
+			expected: []int{6, 2},
+		},
+		{
+			name:     "LhsInputToZero",
+			lhs:      NewInputExpression(0),
+			rhs:      NewLiteralExpression(0),
+			target:   0,
+			decider:  PreferInputsThatMakeLargerNumber,
+			expected: []int{9},
+		},
+		{
+			name:     "RhsInputToZero",
+			lhs:      NewLiteralExpression(0),
+			rhs:      NewInputExpression(0),
+			target:   0,
+			decider:  PreferInputsThatMakeLargerNumber,
+			expected: []int{9},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			expr := NewMultiplyExpression(test.lhs, test.rhs)
+			actualMap, err := expr.FindInputs(test.target, test.decider)
+
+			if test.expectError && err == nil {
+				t.Fatalf("Expected test to error but it didn't")
+			} else if err != nil && !test.expectError {
+				t.Fatal(err)
+			}
+
+			if test.expectError {
+				return
+			}
+
+			actual := make([]int, len(actualMap))
+			for index, value := range actualMap {
+				actual[index] = value
+			}
+
+			if len(actual) != len(test.expected) {
+				t.Fatalf("Wrong # of items in result. Expected %v (%d), got %v (%d)", test.expected, len(test.expected), actual, len(actual))
+			}
+
+			for i := range test.expected {
+				if actual[i] != test.expected[i] {
+					t.Errorf("Item %d is wrong. Expected %d, got %d", i, test.expected[i], actual[i])
+				}
+			}
+		})
+	}
 }
 
 func TestMultiplyExpressionRange(t *testing.T) {
@@ -39,7 +130,7 @@ func TestMultiplyExpressionRange(t *testing.T) {
 			name:     "InputAndLiteral",
 			lhs:      NewInputExpression(0),
 			rhs:      NewLiteralExpression(3),
-			expected: NewIntRange(3, 27),
+			expected: NewIntRangeWithStep(3, 27, 3),
 		},
 	}
 

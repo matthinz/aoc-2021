@@ -37,20 +37,25 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			if target == 0 {
 				// We must find *any* rhsValue that does not equal lhsValue
-				if rhsRange.min == rhsRange.max {
-					if rhsRange.min != lhsValue {
-						return []int{rhsRange.min}, nil
-					}
+				if rhsRange.EqualsInt(lhsValue) {
 					return []int{}, nil
+				} else if rhsRange.Len() == 1 {
+					return []int{rhsRange.min}, nil
 				}
 
-				panic("NOT IMPLEMENTED")
+				result := make([]int, 0, rhsRange.Len())
+				for i := rhsRange.min; i <= rhsRange.max; i++ {
+					if i != lhsValue {
+						result = append(result, i)
+					}
+				}
+
+				return result, nil
 			}
 
-			// we must find an value that equals lhsValue
-			if lhsValue < rhsRange.min || lhsValue > rhsRange.max {
-				// not in the range of possible values
-				return []int{}, nil
+			// We must find a value in rhsRange that equals lhsValue
+			if rhsRange.Includes(lhsValue) {
+				return []int{lhsValue}, nil
 			}
 
 			return []int{lhsValue}, nil
@@ -60,7 +65,7 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 }
 
 func (e *EqualsExpression) Range() IntRange {
-	return IntRange{0, 1}
+	return NewIntRange(0, 1)
 }
 
 func (e *EqualsExpression) Simplify() Expression {

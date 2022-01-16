@@ -1,5 +1,10 @@
 package d24
 
+import (
+	"fmt"
+	"math"
+)
+
 type DivideExpression struct {
 	BinaryExpression
 }
@@ -30,12 +35,21 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 			if target == 0 {
 				// When target == 0, divisor can't affect the result, except when it
 				// can. We're doing integer division, so a large enough divisor *could* get us to zero
-				panic("NOT IMPLEMENTED")
+				// e.g if we're doing 6 / x = 0, any x > 6 will result in 0
+				i, err := NewIntRange(dividend+1, math.MaxInt).Intersect(divisorRange)
+				if err != nil {
+					return nil, err
+				}
+				return i.Values(), nil
 			}
 
 			// dividend = divisor * target
 			// divisor = dividend / target
 			divisor := dividend / target
+
+			if divisor == 0 {
+				return nil, fmt.Errorf("Can't divide by zero")
+			}
 
 			if divisor < divisorRange.min || divisor > divisorRange.max {
 				return []int{}, nil
@@ -54,10 +68,10 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 func (e *DivideExpression) Range() IntRange {
 	lhsRange := e.lhs.Range()
 	rhsRange := e.rhs.Range()
-	return IntRange{
-		min: lhsRange.min / rhsRange.max,
-		max: lhsRange.max / rhsRange.min,
-	}
+	return NewIntRange(
+		lhsRange.min/rhsRange.max,
+		lhsRange.max/rhsRange.min,
+	)
 }
 
 func (e *DivideExpression) Simplify() Expression {

@@ -52,7 +52,106 @@ func TestEqualsExpressionEvaluate(t *testing.T) {
 }
 
 func TestEqualsExpressionFindInputs(t *testing.T) {
-	t.Skip()
+	type findInputsTest struct {
+		name        string
+		lhs         Expression
+		rhs         Expression
+		target      int
+		decider     InputDecider
+		expected    []int
+		expectError bool
+	}
+
+	tests := []findInputsTest{
+		{
+			name:     "TwoEqualLiterals",
+			lhs:      NewLiteralExpression(5),
+			rhs:      NewLiteralExpression(5),
+			target:   1,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{},
+		},
+		{
+			name:     "TwoUnequalLiterals",
+			lhs:      NewLiteralExpression(3),
+			rhs:      NewLiteralExpression(5),
+			target:   0,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{},
+		},
+		{
+			name:        "TwoEqualLiteralsSeekingNotEqual",
+			lhs:         NewLiteralExpression(5),
+			rhs:         NewLiteralExpression(5),
+			target:      0,
+			decider:     PreferFirstSetOfInputs,
+			expectError: true,
+		},
+		{
+			name:        "TwoNonEqualLiteralsSeekingEqual",
+			lhs:         NewLiteralExpression(3),
+			rhs:         NewLiteralExpression(5),
+			target:      1,
+			decider:     PreferFirstSetOfInputs,
+			expectError: true,
+		},
+		{
+			name:     "TwoDifferentInputsSeekingEquality",
+			lhs:      NewInputExpression(0),
+			rhs:      NewInputExpression(1),
+			target:   1,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{1, 1},
+		},
+		{
+			name:     "TwoDifferentInputsSeekingInequality",
+			lhs:      NewInputExpression(0),
+			rhs:      NewInputExpression(1),
+			target:   0,
+			decider:  PreferInputsThatMakeLargerNumber,
+			expected: []int{9, 8},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			expr := NewEqualsExpression(test.lhs, test.rhs)
+			actualMap, err := expr.FindInputs(test.target, test.decider)
+
+			if test.expectError && err == nil {
+				t.Fatalf("Expected test to error but it didn't")
+			} else if err != nil && !test.expectError {
+				t.Fatal(err)
+			}
+
+			if test.expectError {
+				return
+			}
+
+			actual := make([]int, len(actualMap))
+			for index, value := range actualMap {
+				actual[index] = value
+			}
+
+			if len(actual) != len(test.expected) {
+				t.Fatalf("Wrong # of items in result. Expected %v (%d), got %v (%d)", test.expected, len(test.expected), actual, len(actual))
+			}
+
+			t.Logf("%s evaluates to %d for %v (target was %d)", expr.String(), expr.Evaluate(actual), actual, test.target)
+
+			loggedInputs := false
+			for i := range test.expected {
+				if !loggedInputs {
+					t.Logf("Expected: %v", test.expected)
+					t.Logf("Actual: %v", actual)
+					loggedInputs = true
+				}
+				if actual[i] != test.expected[i] {
+					t.Errorf("Item %d is wrong. Expected %d, got %d", i, test.expected[i], actual[i])
+				}
+			}
+		})
+	}
 }
 
 func TestEqualsExpressionRange(t *testing.T) {

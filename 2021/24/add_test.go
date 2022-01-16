@@ -12,7 +12,91 @@ func TestAddExpressionEvaluate(t *testing.T) {
 }
 
 func TestAddExpressionFindInputs(t *testing.T) {
-	t.Skip()
+	type findInputsTest struct {
+		name        string
+		lhs         Expression
+		rhs         Expression
+		target      int
+		decider     InputDecider
+		expected    []int
+		expectError bool
+	}
+
+	tests := []findInputsTest{
+		{
+			name:     "LhsLiteralRhsInput",
+			lhs:      NewLiteralExpression(5),
+			rhs:      NewInputExpression(0),
+			target:   12,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{7},
+		},
+		{
+			name:     "LhsInputRhsLiteral",
+			lhs:      NewInputExpression(0),
+			rhs:      NewLiteralExpression(5),
+			target:   12,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{7},
+		},
+		{
+			name:     "TwoInputsThatMustBeEqual",
+			lhs:      NewInputExpression(0),
+			rhs:      NewInputExpression(0),
+			target:   12,
+			decider:  PreferFirstSetOfInputs,
+			expected: []int{6},
+		},
+		{
+			name:     "TwoInputsThatMakeLargestNumber",
+			lhs:      NewInputExpression(0),
+			rhs:      NewInputExpression(1),
+			target:   12,
+			decider:  PreferInputsThatMakeLargerNumber,
+			expected: []int{9, 3},
+		},
+		{
+			name:        "TwoInputsThatCantAddUp",
+			lhs:         NewInputExpression(0),
+			rhs:         NewInputExpression(1),
+			target:      100,
+			decider:     PreferFirstSetOfInputs,
+			expectError: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			expr := NewAddExpression(test.lhs, test.rhs)
+			actualMap, err := expr.FindInputs(test.target, test.decider)
+
+			if test.expectError && err == nil {
+				t.Fatalf("Expected test to error but it didn't")
+			} else if err != nil && !test.expectError {
+				t.Fatal(err)
+			}
+
+			if test.expectError {
+				return
+			}
+
+			actual := make([]int, len(actualMap))
+			for index, value := range actualMap {
+				actual[index] = value
+			}
+
+			if len(actual) != len(test.expected) {
+				t.Fatalf("Wrong # of items in result. Expected %v (%d), got %v (%d)", test.expected, len(test.expected), actual, len(actual))
+			}
+
+			for i := range test.expected {
+				if actual[i] != test.expected[i] {
+					t.Errorf("Item %d is wrong. Expected %d, got %d", i, test.expected[i], actual[i])
+				}
+			}
+		})
+	}
+
 }
 
 func TestAddExpressionRange(t *testing.T) {

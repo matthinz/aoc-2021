@@ -1,5 +1,7 @@
 package d24
 
+import "math"
+
 type MultiplyExpression struct {
 	BinaryExpression
 }
@@ -64,10 +66,32 @@ func (e *MultiplyExpression) FindInputs(target int, d InputDecider) (map[int]int
 func (e *MultiplyExpression) Range() IntRange {
 	lhsRange := e.lhs.Range()
 	rhsRange := e.rhs.Range()
-	return IntRange{
-		min: lhsRange.min * rhsRange.min,
-		max: lhsRange.max * rhsRange.max,
+
+	if lhsRange.Len() == 1 && rhsRange.Len() == 1 {
+		return NewIntRange(lhsRange.min*rhsRange.max, lhsRange.min*rhsRange.max)
 	}
+
+	if lhsRange.Len() == 1 {
+		return NewIntRangeWithStep(
+			lhsRange.min*rhsRange.min,
+			lhsRange.max*rhsRange.max,
+			int(math.Abs(float64(lhsRange.min))),
+		)
+	}
+
+	if rhsRange.Len() == 1 {
+		return NewIntRangeWithStep(
+			lhsRange.min*rhsRange.min,
+			lhsRange.max*rhsRange.max,
+			int(math.Abs(float64(rhsRange.min))),
+		)
+	}
+
+	return NewIntRange(
+		lhsRange.min*rhsRange.min,
+		lhsRange.max*rhsRange.max,
+		// TODO: Figure out how to do step here.
+	)
 }
 
 func (e *MultiplyExpression) Simplify() Expression {

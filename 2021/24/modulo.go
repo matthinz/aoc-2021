@@ -1,6 +1,29 @@
 package d24
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
+
+// Things about modulus
+//
+// x % y = "remainder of x/y"
+//
+// This works out to: (decimal part of x / y) * y
+//
+// When x < y, there is *only* a decimal part, so this becomes (x/y*y) == x
+//
+// When x == y, then modulus == 0
+//
+// When x > y:
+//
+// 	0 <= result <= y - 1
+//
+// When x == 0, result is *always* 0
+//
+// When x < 0 and y >= 0 result is negative
+// When x >= 0 and y < 0 result is positive
+// When x < 0 and y < 0 result is negative
 
 type ModuloExpression struct {
 	BinaryExpression
@@ -43,47 +66,48 @@ func (e *ModuloExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 }
 
 func (e *ModuloExpression) Range() IntRange {
-
 	lhsRange := e.lhs.Range()
 	rhsRange := e.rhs.Range()
 
-	if lhsRange.Len() == 1 && rhsRange.Len() == 1 {
-		// there is only one value
-		value := lhsRange.min % rhsRange.min
-		return IntRange{value, value}
-	} else if lhsRange.Len() == 1 {
-		// TODO
-	} else if rhsRange.Len() == 1 {
-		// TODO
-	} else if lhsRange.LessThanRange(rhsRange) {
-		// e.g. 10 % 20 = 10
-		return lhsRange
-	} else if rhsRange.LessThanRange(lhsRange) {
-		return IntRange{
-			min: rhsRange.min - 1,
-			max: rhsRange.max - 1,
-		}
-	}
+	// 1. Probe for the upper and lower limits of the range
+	//    This allows us to know, when iterating over large sets of numbers,
+	//    when we should stop iterating.
 
-	fmt.Printf("Modulo range: %v vs %v\n", lhsRange, rhsRange)
+	lowerBoundary, upperBoundary := findModuloBoundaries(lhsRange, rhsRange)
 
-	var min, max int
+	fmt.Printf("Boundaries for %v %% %v : %d, %d\n", lhsRange, rhsRange, lowerBoundary, upperBoundary)
 
-	for lhsValue := lhsRange.min; lhsValue <= lhsRange.max; lhsValue++ {
-		for rhsValue := rhsRange.min; rhsValue <= rhsRange.max; rhsValue++ {
+	// 2. Iterate over all possible combinations of values and find the
+	//    minimum and maximum results. Once our min and max values are
+	//    equal to our boundaries, we know there's no more we can do.
 
-			value := lhsValue % rhsValue
+	min := math.MaxInt
+	max := math.MinInt
+
+	fmt.Printf("lhs: %v, rhs: %v\n", lhsRange, rhsRange)
+
+	lhsRange.Each(func(i int) bool {
+		rhsRange.Each(func(j int) bool {
+
+			value := i % j
+
+			fmt.Printf("%d %% %d = %d\n", i, j, value)
+
 			if value < min {
 				min = value
 			}
+
 			if value > max {
 				max = value
 			}
-		}
-	}
 
-	return IntRange{min, max}
+			return min != lowerBoundary || max != upperBoundary
+		})
 
+		return min != lowerBoundary || max != upperBoundary
+	})
+
+	return NewIntRange(min, max)
 }
 
 func (e *ModuloExpression) Simplify() Expression {
@@ -115,4 +139,87 @@ func (e *ModuloExpression) Simplify() Expression {
 	expr := NewModuloExpression(lhs, rhs)
 	expr.(*ModuloExpression).isSimplified = true
 	return expr
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Finds the maximum and minimum *possible* modulo values
+func findModuloBoundaries(lhsRange, rhsRange IntRange) (int, int) {
+
+	maxInt := func(values ...int) int {
+		result := math.MinInt
+		for _, value := range values {
+			if value > result {
+				result = value
+			}
+		}
+		return result
+	}
+
+	minInt := func(values ...int) int {
+		result := math.MaxInt
+		for _, value := range values {
+			if value < result {
+				result = value
+			}
+		}
+		return result
+	}
+
+	lowerBound := math.MaxInt
+	upperBound := math.MinInt
+
+	lhsNegative, lhsZero, lhsPositive := lhsRange.Split(0)
+	rhsNegative, _, rhsPositive := rhsRange.Split(0)
+
+	if lhsNegative != nil {
+		// Having negative values on the left hand side of the modulo operation
+		// means that it is possible the result could be negative.
+		lowerBound = minInt(lowerBound, 0)
+
+		if rhsNegative != nil {
+			lowerBound = minInt(lowerBound, rhsNegative.min+1)
+		}
+
+		if rhsPositive != nil {
+			lowerBound = minInt(lowerBound, rhsPositive.max*-1)
+		}
+
+		upperBound = maxInt(upperBound, lowerBound)
+	}
+
+	if lhsZero != nil {
+		// When LHS is zero, the result will be zero
+		lowerBound = minInt(lowerBound, 0)
+		upperBound = maxInt(lowerBound, 0)
+	}
+
+	if lhsPositive != nil {
+		// When LHS is positive, the result will be positive
+		lowerBound = minInt(lowerBound, 0)
+
+		if rhsNegative != nil {
+			lowerBound = minInt(lowerBound, rhsNegative.max*-1)
+			upperBound = maxInt(upperBound, rhsNegative.min*-1)
+		}
+
+		if rhsPositive != nil {
+			lowerBound = minInt(lowerBound, rhsPositive.min-1)
+			upperBound = maxInt(upperBound, rhsPositive.max-1)
+		}
+	}
+
+	return lowerBound, upperBound
 }

@@ -43,10 +43,10 @@ func (e *AddExpression) Range() IntRange {
 	lhsRange := e.lhs.Range()
 	rhsRange := e.rhs.Range()
 
-	return IntRange{
-		min: lhsRange.min + rhsRange.min,
-		max: lhsRange.max + rhsRange.max,
-	}
+	return NewIntRange(
+		lhsRange.min+rhsRange.min,
+		lhsRange.max+rhsRange.max,
+	)
 }
 
 func (e *AddExpression) Simplify() Expression {

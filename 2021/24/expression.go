@@ -1,6 +1,9 @@
 package d24
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // InputDecider takes two sets of inputs and decides which one to use.
 // If no decision can be made, it should return an error.
@@ -31,4 +34,46 @@ type BinaryExpression struct {
 
 func (e *BinaryExpression) String() string {
 	return fmt.Sprintf("%s %s %s", e.lhs.String(), string(e.operator), e.rhs.String())
+}
+
+func PreferFirstSetOfInputs(a, b map[int]int) (map[int]int, error) {
+	return a, nil
+}
+
+func PreferSecondSetOfInputs(a, b map[int]int) (map[int]int, error) {
+	return a, nil
+}
+
+func PreferInputsThatMakeLargerNumber(a, b map[int]int) (map[int]int, error) {
+
+	aValue := inputsToNumber(a)
+	bValue := inputsToNumber(b)
+
+	if aValue >= bValue {
+		return a, nil
+	} else {
+		return b, nil
+	}
+}
+
+func inputsToNumber(inputs map[int]int) int {
+	var digits []int
+
+	for inputIndex, inputValue := range inputs {
+		if len(digits) < inputIndex+1 {
+			temp := make([]int, inputIndex+1)
+			copy(temp, digits)
+			digits = temp
+		}
+		digits[inputIndex] = inputValue
+	}
+
+	var result int
+
+	for i, digit := range digits {
+		power := (len(digits) - (i + 1))
+		result += int(math.Pow10(power)) * digit
+	}
+
+	return result
 }
