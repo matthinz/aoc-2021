@@ -6,12 +6,12 @@ import (
 )
 
 type MultiplyExpression struct {
-	BinaryExpression
+	binaryExpression
 }
 
 func NewMultiplyExpression(lhs, rhs Expression) Expression {
 	return &MultiplyExpression{
-		BinaryExpression: BinaryExpression{
+		binaryExpression: binaryExpression{
 			lhs:      lhs,
 			rhs:      rhs,
 			operator: '*',
@@ -31,8 +31,7 @@ func (e *MultiplyExpression) Evaluate(inputs []int) int {
 
 func (e *MultiplyExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
-		&e.BinaryExpression,
-		e.operator,
+		e,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			if target == 0 {

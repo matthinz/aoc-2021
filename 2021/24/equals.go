@@ -6,12 +6,12 @@ import (
 )
 
 type EqualsExpression struct {
-	BinaryExpression
+	binaryExpression
 }
 
 func NewEqualsExpression(lhs, rhs Expression) Expression {
 	return &EqualsExpression{
-		BinaryExpression: BinaryExpression{
+		binaryExpression: binaryExpression{
 			lhs:      lhs,
 			rhs:      rhs,
 			operator: '=',
@@ -41,8 +41,7 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 	}
 
 	return findInputsForBinaryExpression(
-		&e.BinaryExpression,
-		e.operator,
+		e,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			if target == 0 {
@@ -80,7 +79,7 @@ func (e *EqualsExpression) Range() IntRange {
 }
 
 func (e *EqualsExpression) Simplify() Expression {
-	if e.BinaryExpression.isSimplified {
+	if e.binaryExpression.isSimplified {
 		return e
 	}
 

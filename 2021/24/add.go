@@ -8,12 +8,12 @@ import (
 
 // AddExpression defines a BinaryExpression that adds its left and righthand sides.
 type AddExpression struct {
-	BinaryExpression
+	binaryExpression
 }
 
 func NewAddExpression(lhs, rhs Expression) Expression {
 	return &AddExpression{
-		BinaryExpression: BinaryExpression{
+		binaryExpression: binaryExpression{
 			lhs:      lhs,
 			rhs:      rhs,
 			operator: '+',
@@ -23,8 +23,8 @@ func NewAddExpression(lhs, rhs Expression) Expression {
 
 func (e *AddExpression) Accept(visitor func(e Expression)) {
 	visitor(e)
-	e.lhs.Accept(visitor)
-	e.rhs.Accept(visitor)
+	e.Lhs().Accept(visitor)
+	e.Rhs().Accept(visitor)
 }
 
 func (e *AddExpression) Evaluate(inputs []int) int {
@@ -33,8 +33,7 @@ func (e *AddExpression) Evaluate(inputs []int) int {
 
 func (e *AddExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
-		&e.BinaryExpression,
-		e.operator,
+		e,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			rhsValue := target - lhsValue
@@ -59,7 +58,7 @@ func (e *AddExpression) Range() IntRange {
 }
 
 func (e *AddExpression) Simplify() Expression {
-	if e.BinaryExpression.isSimplified {
+	if e.binaryExpression.isSimplified {
 		return e
 	}
 

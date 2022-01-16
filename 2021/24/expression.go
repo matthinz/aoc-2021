@@ -23,9 +23,15 @@ type Expression interface {
 	String() string
 }
 
-// BinaryExpression is an Expression comprised of two expressions, (left-
-// and right-hand sides) and an operator.
-type BinaryExpression struct {
+type BinaryExpression interface {
+	Lhs() Expression
+	Rhs() Expression
+	String() string
+}
+
+// binaryExpression is an embeddable Expression comprised of two expressions,
+// (left- and right-hand sides) and an operator.
+type binaryExpression struct {
 	lhs      Expression
 	rhs      Expression
 	operator rune
@@ -34,7 +40,15 @@ type BinaryExpression struct {
 	isSimplified bool
 }
 
-func (e *BinaryExpression) String() string {
+func (e *binaryExpression) Lhs() Expression {
+	return e.lhs
+}
+
+func (e *binaryExpression) Rhs() Expression {
+	return e.rhs
+}
+
+func (e *binaryExpression) String() string {
 	return fmt.Sprintf("%s %s %s", e.lhs.String(), string(e.operator), e.rhs.String())
 }
 

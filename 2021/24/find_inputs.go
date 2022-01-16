@@ -8,16 +8,20 @@ import (
 // Take a binary expression (e.g. a +, *, /, etc.) and find inputs required
 // to get it to equal <target>
 func findInputsForBinaryExpression(
-	e *BinaryExpression,
-	operator rune,
+	e BinaryExpression,
 	target int,
 	getRhsValues func(lhsValue int, rhsRange IntRange) ([]int, error),
 	d InputDecider,
 	l *log.Logger,
 ) (map[int]int, error) {
 
-	lhsRange := e.lhs.Range()
-	rhsRange := e.rhs.Range()
+	l.Println()
+	l.Printf("findInputsForBinaryExpression: %s", e.String())
+
+	lhsRange := e.Lhs().Range()
+	rhsRange := e.Rhs().Range()
+
+	l.Printf("lhsRange: %v, rhsRange: %v", lhsRange, rhsRange)
 
 	var best map[int]int
 
@@ -26,21 +30,19 @@ func findInputsForBinaryExpression(
 	lhsRange.Each(func(lhsValue int) bool {
 		potentialRhsValues, err := getRhsValues(lhsValue, rhsRange)
 
-		l.Printf("%d %s %v = %v", lhsValue, string(operator), potentialRhsValues, target)
-
 		if err != nil {
 			return true
 		}
 
 		for _, rhsValue := range potentialRhsValues {
 
-			lhsInputs, err := e.lhs.FindInputs(lhsValue, d, l)
+			lhsInputs, err := e.Lhs().FindInputs(lhsValue, d, l)
 
 			if err != nil {
 				continue
 			}
 
-			rhsInputs, err := e.rhs.FindInputs(rhsValue, d, l)
+			rhsInputs, err := e.Rhs().FindInputs(rhsValue, d, l)
 
 			if err != nil {
 				continue

@@ -26,12 +26,12 @@ import (
 // When x < 0 and y < 0 result is negative
 
 type ModuloExpression struct {
-	BinaryExpression
+	binaryExpression
 }
 
 func NewModuloExpression(lhs, rhs Expression) Expression {
 	return &ModuloExpression{
-		BinaryExpression: BinaryExpression{
+		binaryExpression: binaryExpression{
 			lhs:      lhs,
 			rhs:      rhs,
 			operator: '%',
@@ -51,8 +51,7 @@ func (e *ModuloExpression) Evaluate(inputs []int) int {
 
 func (e *ModuloExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
-		&e.BinaryExpression,
-		e.operator,
+		e,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			// need to find rhsValues such that lhsValue % rhsValue = target

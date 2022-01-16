@@ -7,12 +7,12 @@ import (
 )
 
 type DivideExpression struct {
-	BinaryExpression
+	binaryExpression
 }
 
 func NewDivideExpression(lhs, rhs Expression) Expression {
 	return &DivideExpression{
-		BinaryExpression: BinaryExpression{
+		binaryExpression: binaryExpression{
 			lhs:      lhs,
 			rhs:      rhs,
 			operator: '/',
@@ -32,8 +32,7 @@ func (e *DivideExpression) Evaluate(inputs []int) int {
 
 func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
-		&e.BinaryExpression,
-		e.operator,
+		e,
 		target,
 		func(dividend int, divisorRange IntRange) ([]int, error) {
 
@@ -84,7 +83,7 @@ func (e *DivideExpression) Range() IntRange {
 }
 
 func (e *DivideExpression) Simplify() Expression {
-	if e.BinaryExpression.isSimplified {
+	if e.binaryExpression.isSimplified {
 		return e
 	}
 
