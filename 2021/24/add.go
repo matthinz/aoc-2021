@@ -88,3 +88,9 @@ func (e *AddExpression) String() string {
 		return fmt.Sprintf("(%s + %s)", e.lhs.String(), e.rhs.String())
 	}
 }
+
+func (e *AddExpression) Visit(v func(e Expression)) {
+	v(e)
+	e.lhs.Visit(v)
+	e.rhs.Visit(v)
+}

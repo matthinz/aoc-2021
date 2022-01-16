@@ -105,3 +105,9 @@ func (e *DivideExpression) Simplify() Expression {
 
 	return result
 }
+
+func (e *DivideExpression) Visit(v func(e Expression)) {
+	v(e)
+	e.lhs.Visit(v)
+	e.rhs.Visit(v)
+}

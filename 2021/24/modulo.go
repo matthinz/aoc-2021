@@ -1,7 +1,6 @@
 package d24
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -75,8 +74,6 @@ func (e *ModuloExpression) Range() IntRange {
 
 	lowerBoundary, upperBoundary := findModuloBoundaries(lhsRange, rhsRange)
 
-	fmt.Printf("Boundaries for %v %% %v : %d, %d\n", lhsRange, rhsRange, lowerBoundary, upperBoundary)
-
 	// 2. Iterate over all possible combinations of values and find the
 	//    minimum and maximum results. Once our min and max values are
 	//    equal to our boundaries, we know there's no more we can do.
@@ -84,14 +81,10 @@ func (e *ModuloExpression) Range() IntRange {
 	min := math.MaxInt
 	max := math.MinInt
 
-	fmt.Printf("lhs: %v, rhs: %v\n", lhsRange, rhsRange)
-
 	lhsRange.Each(func(i int) bool {
 		rhsRange.Each(func(j int) bool {
 
 			value := i % j
-
-			fmt.Printf("%d %% %d = %d\n", i, j, value)
 
 			if value < min {
 				min = value
@@ -222,4 +215,10 @@ func findModuloBoundaries(lhsRange, rhsRange IntRange) (int, int) {
 	}
 
 	return lowerBound, upperBound
+}
+
+func (e *ModuloExpression) Visit(v func(e Expression)) {
+	v(e)
+	e.lhs.Visit(v)
+	e.rhs.Visit(v)
 }

@@ -39,3 +39,7 @@ func (e *LiteralExpression) Simplify() Expression {
 func (e *LiteralExpression) String() string {
 	return strconv.FormatInt(int64(e.value), 10)
 }
+
+func (e *LiteralExpression) Visit(v func(e Expression)) {
+	v(e)
+}

@@ -19,6 +19,7 @@ type Expression interface {
 	Range() IntRange
 	Simplify() Expression
 	String() string
+	Visit(v func(e Expression))
 }
 
 // BinaryExpression is an Expression comprised of two expressions, (left-

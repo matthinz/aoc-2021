@@ -39,3 +39,7 @@ func (e *InputExpression) Simplify() Expression {
 func (e *InputExpression) String() string {
 	return fmt.Sprintf("i%d", e.index)
 }
+
+func (e *InputExpression) Visit(v func(e Expression)) {
+	v(e)
+}

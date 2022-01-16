@@ -129,3 +129,9 @@ func (e *MultiplyExpression) Simplify() Expression {
 
 	return expr
 }
+
+func (e *MultiplyExpression) Visit(v func(e Expression)) {
+	v(e)
+	e.lhs.Visit(v)
+	e.rhs.Visit(v)
+}

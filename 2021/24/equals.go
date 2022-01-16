@@ -100,3 +100,9 @@ func (e *EqualsExpression) Simplify() Expression {
 func (e *EqualsExpression) String() string {
 	return fmt.Sprintf("(%s == %s ? 1 : 0)", e.lhs.String(), e.rhs.String())
 }
+
+func (e *EqualsExpression) Visit(v func(e Expression)) {
+	v(e)
+	e.lhs.Visit(v)
+	e.rhs.Visit(v)
+}
