@@ -19,6 +19,12 @@ func NewDivideExpression(lhs, rhs Expression) Expression {
 	}
 }
 
+func (e *DivideExpression) Accept(visitor func(e Expression)) {
+	visitor(e)
+	e.lhs.Accept(visitor)
+	e.rhs.Accept(visitor)
+}
+
 func (e *DivideExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) / e.rhs.Evaluate(inputs)
 }
@@ -104,10 +110,4 @@ func (e *DivideExpression) Simplify() Expression {
 	result.(*DivideExpression).isSimplified = true
 
 	return result
-}
-
-func (e *DivideExpression) Visit(v func(e Expression)) {
-	v(e)
-	e.lhs.Visit(v)
-	e.rhs.Visit(v)
 }

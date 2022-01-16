@@ -14,6 +14,10 @@ func NewInputExpression(index int) Expression {
 	return &InputExpression{index}
 }
 
+func (e *InputExpression) Accept(visitor func(e Expression)) {
+	visitor(e)
+}
+
 func (e *InputExpression) Evaluate(inputs []int) int {
 	return inputs[e.index]
 }
@@ -38,8 +42,4 @@ func (e *InputExpression) Simplify() Expression {
 
 func (e *InputExpression) String() string {
 	return fmt.Sprintf("i%d", e.index)
-}
-
-func (e *InputExpression) Visit(v func(e Expression)) {
-	v(e)
 }

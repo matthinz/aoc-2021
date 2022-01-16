@@ -16,6 +16,12 @@ func NewMultiplyExpression(lhs, rhs Expression) Expression {
 	}
 }
 
+func (e *MultiplyExpression) Accept(visitor func(e Expression)) {
+	visitor(e)
+	e.lhs.Accept(visitor)
+	e.rhs.Accept(visitor)
+}
+
 func (e *MultiplyExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) * e.rhs.Evaluate(inputs)
 }
@@ -128,10 +134,4 @@ func (e *MultiplyExpression) Simplify() Expression {
 	expr.(*MultiplyExpression).isSimplified = true
 
 	return expr
-}
-
-func (e *MultiplyExpression) Visit(v func(e Expression)) {
-	v(e)
-	e.lhs.Visit(v)
-	e.rhs.Visit(v)
 }

@@ -20,6 +20,12 @@ func NewAddExpression(lhs, rhs Expression) Expression {
 	}
 }
 
+func (e *AddExpression) Accept(visitor func(e Expression)) {
+	visitor(e)
+	e.lhs.Accept(visitor)
+	e.rhs.Accept(visitor)
+}
+
 func (e *AddExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) + e.rhs.Evaluate(inputs)
 }
@@ -87,10 +93,4 @@ func (e *AddExpression) String() string {
 	} else {
 		return fmt.Sprintf("(%s + %s)", e.lhs.String(), e.rhs.String())
 	}
-}
-
-func (e *AddExpression) Visit(v func(e Expression)) {
-	v(e)
-	e.lhs.Visit(v)
-	e.rhs.Visit(v)
 }

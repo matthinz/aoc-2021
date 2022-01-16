@@ -38,6 +38,12 @@ func NewModuloExpression(lhs, rhs Expression) Expression {
 	}
 }
 
+func (e *ModuloExpression) Accept(visitor func(e Expression)) {
+	visitor(e)
+	e.lhs.Accept(visitor)
+	e.rhs.Accept(visitor)
+}
+
 func (e *ModuloExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) % e.rhs.Evaluate(inputs)
 }
@@ -215,10 +221,4 @@ func findModuloBoundaries(lhsRange, rhsRange IntRange) (int, int) {
 	}
 
 	return lowerBound, upperBound
-}
-
-func (e *ModuloExpression) Visit(v func(e Expression)) {
-	v(e)
-	e.lhs.Visit(v)
-	e.rhs.Visit(v)
 }

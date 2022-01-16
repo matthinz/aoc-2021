@@ -13,7 +13,7 @@ var realInput string
 func TestParseRealInputFindsAllInputsInZ(t *testing.T) {
 	r := parseInput(strings.NewReader(realInput))
 	inputsFound := make(map[int]int)
-	r.z.Visit(func(e Expression) {
+	r.z.Accept(func(e Expression) {
 		ie, ok := e.(*InputExpression)
 		if ok {
 			fmt.Println(ie)

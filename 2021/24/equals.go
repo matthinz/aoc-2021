@@ -16,6 +16,12 @@ func NewEqualsExpression(lhs, rhs Expression) Expression {
 	}
 }
 
+func (e *EqualsExpression) Accept(visitor func(e Expression)) {
+	visitor(e)
+	e.lhs.Accept(visitor)
+	e.rhs.Accept(visitor)
+}
+
 func (e *EqualsExpression) Evaluate(inputs []int) int {
 	lhsValue := e.lhs.Evaluate(inputs)
 	rhsValue := e.rhs.Evaluate(inputs)
@@ -99,10 +105,4 @@ func (e *EqualsExpression) Simplify() Expression {
 
 func (e *EqualsExpression) String() string {
 	return fmt.Sprintf("(%s == %s ? 1 : 0)", e.lhs.String(), e.rhs.String())
-}
-
-func (e *EqualsExpression) Visit(v func(e Expression)) {
-	v(e)
-	e.lhs.Visit(v)
-	e.rhs.Visit(v)
 }
