@@ -2,6 +2,7 @@ package d24
 
 import (
 	"fmt"
+	"log"
 	"math"
 )
 
@@ -16,7 +17,7 @@ type Expression interface {
 	Evaluate(inputs []int) int
 	// Returns a set of inputs that will make this expression evaluate to <target>.
 	// <d> is a function that, given two potential sets of inputs, returns the one that should be preferred.
-	FindInputs(target int, d InputDecider) (map[int]int, error)
+	FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error)
 	Range() IntRange
 	Simplify() Expression
 	String() string

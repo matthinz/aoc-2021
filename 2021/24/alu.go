@@ -21,7 +21,7 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 
 	reg := parseInput(r)
 
-	inputs, err := reg.z.FindInputs(0, PreferInputsThatMakeLargerNumber)
+	inputs, err := reg.z.FindInputs(0, PreferInputsThatMakeLargerNumber, l)
 
 	if err != nil {
 		panic(err)

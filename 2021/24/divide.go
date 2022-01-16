@@ -2,6 +2,7 @@ package d24
 
 import (
 	"fmt"
+	"log"
 	"math"
 )
 
@@ -29,9 +30,10 @@ func (e *DivideExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) / e.rhs.Evaluate(inputs)
 }
 
-func (e *DivideExpression) FindInputs(target int, d InputDecider) (map[int]int, error) {
+func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
 		&e.BinaryExpression,
+		e.operator,
 		target,
 		func(dividend int, divisorRange IntRange) ([]int, error) {
 
@@ -68,6 +70,7 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 			return []int{divisor}, nil
 		},
 		d,
+		l,
 	)
 }
 

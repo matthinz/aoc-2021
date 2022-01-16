@@ -1,6 +1,7 @@
 package d24
 
 import (
+	"log"
 	"math"
 )
 
@@ -48,9 +49,10 @@ func (e *ModuloExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) % e.rhs.Evaluate(inputs)
 }
 
-func (e *ModuloExpression) FindInputs(target int, d InputDecider) (map[int]int, error) {
+func (e *ModuloExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
 		&e.BinaryExpression,
+		e.operator,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			// need to find rhsValues such that lhsValue % rhsValue = target
@@ -67,6 +69,7 @@ func (e *ModuloExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 			return result, nil
 		},
 		d,
+		l,
 	)
 }
 

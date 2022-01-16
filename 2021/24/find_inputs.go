@@ -1,14 +1,19 @@
 package d24
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 // Take a binary expression (e.g. a +, *, /, etc.) and find inputs required
 // to get it to equal <target>
 func findInputsForBinaryExpression(
 	e *BinaryExpression,
+	operator rune,
 	target int,
 	getRhsValues func(lhsValue int, rhsRange IntRange) ([]int, error),
 	d InputDecider,
+	l *log.Logger,
 ) (map[int]int, error) {
 
 	lhsRange := e.lhs.Range()
@@ -18,22 +23,24 @@ func findInputsForBinaryExpression(
 
 	// for each value in left side's range, look for a corresponding value in the
 	// right side's range and figure out the inputs needed to get them both to go there
-	for lhsValue := lhsRange.min; lhsValue <= lhsRange.max; lhsValue++ {
+	lhsRange.Each(func(lhsValue int) bool {
 		potentialRhsValues, err := getRhsValues(lhsValue, rhsRange)
 
+		l.Printf("%d %s %v = %v", lhsValue, string(operator), potentialRhsValues, target)
+
 		if err != nil {
-			continue
+			return true
 		}
 
 		for _, rhsValue := range potentialRhsValues {
 
-			lhsInputs, err := e.lhs.FindInputs(lhsValue, d)
+			lhsInputs, err := e.lhs.FindInputs(lhsValue, d, l)
 
 			if err != nil {
 				continue
 			}
 
-			rhsInputs, err := e.rhs.FindInputs(rhsValue, d)
+			rhsInputs, err := e.rhs.FindInputs(rhsValue, d, l)
 
 			if err != nil {
 				continue
@@ -69,9 +76,10 @@ func findInputsForBinaryExpression(
 					best = b
 				}
 			}
-
 		}
-	}
+
+		return true
+	})
 
 	if best == nil {
 		return nil, fmt.Errorf("No inputs can reach %d for ranges %v and %v", target, lhsRange, rhsRange)

@@ -2,6 +2,7 @@ package d24
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -30,9 +31,10 @@ func (e *AddExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) + e.rhs.Evaluate(inputs)
 }
 
-func (e *AddExpression) FindInputs(target int, d InputDecider) (map[int]int, error) {
+func (e *AddExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
 		&e.BinaryExpression,
+		e.operator,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			rhsValue := target - lhsValue
@@ -42,6 +44,7 @@ func (e *AddExpression) FindInputs(target int, d InputDecider) (map[int]int, err
 			return []int{rhsValue}, nil
 		},
 		d,
+		l,
 	)
 }
 

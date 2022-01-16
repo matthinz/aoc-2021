@@ -1,6 +1,9 @@
 package d24
 
-import "testing"
+import (
+	"log"
+	"testing"
+)
 
 func TestDivideExpressionEvaluate(t *testing.T) {
 	expr := NewDivideExpression(NewLiteralExpression(15), NewInputExpression(0))
@@ -100,7 +103,7 @@ func TestDivideExpressionFindInputs(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewDivideExpression(test.lhs, test.rhs)
-			actualMap, err := expr.FindInputs(test.target, test.decider)
+			actualMap, err := expr.FindInputs(test.target, test.decider, log.Default())
 
 			if test.expectError && err == nil {
 				t.Fatalf("Expected test to error but it didn't")

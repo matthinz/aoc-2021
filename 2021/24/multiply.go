@@ -1,6 +1,9 @@
 package d24
 
-import "math"
+import (
+	"log"
+	"math"
+)
 
 type MultiplyExpression struct {
 	BinaryExpression
@@ -26,9 +29,10 @@ func (e *MultiplyExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) * e.rhs.Evaluate(inputs)
 }
 
-func (e *MultiplyExpression) FindInputs(target int, d InputDecider) (map[int]int, error) {
+func (e *MultiplyExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	return findInputsForBinaryExpression(
 		&e.BinaryExpression,
+		e.operator,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			if target == 0 {
@@ -66,6 +70,7 @@ func (e *MultiplyExpression) FindInputs(target int, d InputDecider) (map[int]int
 			return result, nil
 		},
 		d,
+		l,
 	)
 }
 

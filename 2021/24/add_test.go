@@ -1,6 +1,9 @@
 package d24
 
-import "testing"
+import (
+	"log"
+	"testing"
+)
 
 func TestAddExpressionEvaluate(t *testing.T) {
 	expr := NewAddExpression(NewLiteralExpression(5), NewInputExpression(0))
@@ -68,7 +71,7 @@ func TestAddExpressionFindInputs(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewAddExpression(test.lhs, test.rhs)
-			actualMap, err := expr.FindInputs(test.target, test.decider)
+			actualMap, err := expr.FindInputs(test.target, test.decider, log.Default())
 
 			if test.expectError && err == nil {
 				t.Fatalf("Expected test to error but it didn't")
@@ -96,7 +99,6 @@ func TestAddExpressionFindInputs(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestAddExpressionRange(t *testing.T) {

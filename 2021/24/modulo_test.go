@@ -1,6 +1,7 @@
 package d24
 
 import (
+	"log"
 	"testing"
 )
 
@@ -97,7 +98,7 @@ func TestModuloExpressionFindInputs(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewModuloExpression(test.lhs, test.rhs)
-			actualMap, err := expr.FindInputs(test.target, test.decider)
+			actualMap, err := expr.FindInputs(test.target, test.decider, log.Default())
 
 			if test.expectError && err == nil {
 				t.Fatalf("Expected test to error but it didn't")

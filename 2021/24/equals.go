@@ -1,6 +1,9 @@
 package d24
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 type EqualsExpression struct {
 	BinaryExpression
@@ -32,13 +35,14 @@ func (e *EqualsExpression) Evaluate(inputs []int) int {
 	}
 }
 
-func (e *EqualsExpression) FindInputs(target int, d InputDecider) (map[int]int, error) {
+func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
 	if target != 0 && target != 1 {
 		return nil, fmt.Errorf("EqualsExpression can't seek a target other than 0 or 1 (got %d)", target)
 	}
 
 	return findInputsForBinaryExpression(
 		&e.BinaryExpression,
+		e.operator,
 		target,
 		func(lhsValue int, rhsRange IntRange) ([]int, error) {
 			if target == 0 {
@@ -67,6 +71,7 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider) (map[int]int, 
 			return []int{lhsValue}, nil
 		},
 		d,
+		l,
 	)
 }
 
