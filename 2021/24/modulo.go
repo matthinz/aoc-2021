@@ -1,8 +1,11 @@
 package d24
 
 import (
+	"fmt"
 	"log"
-	"math"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 // Things about modulus
@@ -29,6 +32,11 @@ type ModuloExpression struct {
 	binaryExpression
 }
 
+type moduloRange struct {
+	lhs Range
+	rhs Range
+}
+
 func NewModuloExpression(lhs, rhs Expression) Expression {
 	return &ModuloExpression{
 		binaryExpression: binaryExpression{
@@ -53,17 +61,23 @@ func (e *ModuloExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 	return findInputsForBinaryExpression(
 		e,
 		target,
-		func(lhsValue int, rhsRange IntRange) ([]int, error) {
+		func(lhsValue int, rhsRange Range) (chan int, error) {
 			// need to find rhsValues such that lhsValue % rhsValue = target
 			// these would be factors of lhsValue - target
 			// TODO: smarter way
 
-			var result []int
-			for i := rhsRange.min; i <= rhsRange.max; i++ {
-				if lhsValue%i == target {
-					result = append(result, i)
+			result := make(chan int)
+
+			go func() {
+				defer close(result)
+
+				rhsValues := rhsRange.Values()
+				for rhsValue := range rhsValues {
+					if lhsValue%rhsValue == target {
+						result <- rhsValue
+					}
 				}
-			}
+			}()
 
 			return result, nil
 		},
@@ -72,43 +86,14 @@ func (e *ModuloExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 	)
 }
 
-func (e *ModuloExpression) Range() IntRange {
-	lhsRange := e.lhs.Range()
-	rhsRange := e.rhs.Range()
+func (e *ModuloExpression) Range() Range {
+	lhsRange := e.Lhs().Range()
+	rhsRange := e.Rhs().Range()
 
-	// 1. Probe for the upper and lower limits of the range
-	//    This allows us to know, when iterating over large sets of numbers,
-	//    when we should stop iterating.
-
-	lowerBoundary, upperBoundary := findModuloBoundaries(lhsRange, rhsRange)
-
-	// 2. Iterate over all possible combinations of values and find the
-	//    minimum and maximum results. Once our min and max values are
-	//    equal to our boundaries, we know there's no more we can do.
-
-	min := math.MaxInt
-	max := math.MinInt
-
-	lhsRange.Each(func(i int) bool {
-		rhsRange.Each(func(j int) bool {
-
-			value := i % j
-
-			if value < min {
-				min = value
-			}
-
-			if value > max {
-				max = value
-			}
-
-			return min != lowerBoundary || max != upperBoundary
-		})
-
-		return min != lowerBoundary || max != upperBoundary
-	})
-
-	return NewIntRange(min, max)
+	return &moduloRange{
+		lhs: lhsRange,
+		rhs: rhsRange,
+	}
 }
 
 func (e *ModuloExpression) Simplify() Expression {
@@ -122,105 +107,107 @@ func (e *ModuloExpression) Simplify() Expression {
 	lhsRange := lhs.Range()
 	rhsRange := rhs.Range()
 
-	// if lhs is 0, we can resolve to zero
-	if lhsRange.EqualsInt(0) {
+	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
+	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+
+	// If lhs is 0, we can resolve to zero
+	if lhsIsSingleValue && lhsSingleValue == 0 {
 		return zeroLiteral
 	}
 
-	// if both ranges are single numbers, we can evaluate to a literal
-	if lhsRange.Len() == 1 && rhsRange.Len() == 1 {
-		return NewLiteralExpression(lhsRange.min % rhsRange.min)
+	// If both ranges are single numbers, we can simplify to a literal
+	if lhsIsSingleValue && rhsIsSingleValue {
+		return NewLiteralExpression(lhsSingleValue % rhsSingleValue)
 	}
 
-	// if lhs is 1 number and *less than* the rhs range, we can eval to a literal
-	if lhsRange.Len() == 1 && lhsRange.min < rhsRange.min {
-		return NewLiteralExpression(lhsRange.min)
-	}
+	// TODO: If lhs is 1 number and *less than* the rhs range, we can eval to a literal
 
 	expr := NewModuloExpression(lhs, rhs)
 	expr.(*ModuloExpression).isSimplified = true
 	return expr
 }
 
-func minInt(a, b int) int {
-	if a < b {
-		return a
+////////////////////////////////////////////////////////////////////////////////
+// moduloRange
+
+func (r *moduloRange) Includes(value int) bool {
+	for v := range r.Values() {
+		if v == value {
+			return true
+		}
 	}
-	return b
+	return false
 }
 
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+func (r *moduloRange) Split(around int) (Range, Range, Range) {
+	return newSplitRanges(r, around)
 }
 
-// Finds the maximum and minimum *possible* modulo values
-func findModuloBoundaries(lhsRange, rhsRange IntRange) (int, int) {
+func (r *moduloRange) Values() chan int {
+	ch := make(chan int)
 
-	maxInt := func(values ...int) int {
-		result := math.MinInt
-		for _, value := range values {
-			if value > result {
-				result = value
+	go func() {
+
+		lhsContinuous, lhsIsContinuous := r.lhs.(*continuousRange)
+		rhsContinuous, rhsIsContinuous := r.rhs.(*continuousRange)
+
+		var min, max *int
+		var hitMin, hitMax int
+
+		var prevValue *int
+
+		for lhsValue := range r.lhs.Values() {
+			for rhsValue := range r.rhs.Values() {
+
+				value := lhsValue % rhsValue
+
+				if min != nil && value == *min {
+					hitMin++
+				}
+
+				if max != nil && value == *max {
+					hitMax++
+				}
+
+				if hitMin > 1 && hitMax > 1 {
+					continue
+				}
+
+				if prevValue != nil && value == *prevValue {
+					continue
+				}
+
+				ch <- value
+				prevValue = &value
 			}
 		}
-		return result
-	}
+		defer close(ch)
+	}()
 
-	minInt := func(values ...int) int {
-		result := math.MaxInt
-		for _, value := range values {
-			if value < result {
-				result = value
-			}
-		}
-		return result
-	}
+	return ch
+}
 
-	lowerBound := math.MaxInt
-	upperBound := math.MinInt
-
-	lhsNegative, lhsZero, lhsPositive := lhsRange.Split(0)
-	rhsNegative, _, rhsPositive := rhsRange.Split(0)
-
-	if lhsNegative != nil {
-		// Having negative values on the left hand side of the modulo operation
-		// means that it is possible the result could be negative.
-		lowerBound = minInt(lowerBound, 0)
-
-		if rhsNegative != nil {
-			lowerBound = minInt(lowerBound, rhsNegative.min+1)
-		}
-
-		if rhsPositive != nil {
-			lowerBound = minInt(lowerBound, rhsPositive.max*-1)
-		}
-
-		upperBound = maxInt(upperBound, lowerBound)
-	}
-
-	if lhsZero != nil {
-		// When LHS is zero, the result will be zero
-		lowerBound = minInt(lowerBound, 0)
-		upperBound = maxInt(lowerBound, 0)
-	}
-
-	if lhsPositive != nil {
-		// When LHS is positive, the result will be positive
-		lowerBound = minInt(lowerBound, 0)
-
-		if rhsNegative != nil {
-			lowerBound = minInt(lowerBound, rhsNegative.max*-1)
-			upperBound = maxInt(upperBound, rhsNegative.min*-1)
-		}
-
-		if rhsPositive != nil {
-			lowerBound = minInt(lowerBound, rhsPositive.min-1)
-			upperBound = maxInt(upperBound, rhsPositive.max-1)
+func (r *moduloRange) String() string {
+	const maxLength = 10
+	values := make(map[int]bool)
+	for value := range r.Values() {
+		values[value] = true
+		if len(values) > maxLength {
+			return fmt.Sprintf("(%s %% %s)", r.lhs.String(), r.rhs.String())
 		}
 	}
 
-	return lowerBound, upperBound
+	distinctValues := make([]int, 0)
+	for value, _ := range values {
+		distinctValues = append(distinctValues, value)
+	}
+
+	sort.Ints(distinctValues)
+
+	stringValues := make([]string, 0)
+	for value := range distinctValues {
+		stringValues = append(stringValues, strconv.FormatInt(int64(value), 10))
+	}
+
+	return strings.Join(stringValues, ",")
 }

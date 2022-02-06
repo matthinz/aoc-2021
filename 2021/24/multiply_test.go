@@ -114,35 +114,52 @@ func TestMultiplyExpressionRange(t *testing.T) {
 		name     string
 		lhs      Expression
 		rhs      Expression
-		expected IntRange
+		expected []int
 	}
+
+	makeIntRange := func(min, max int) []int {
+		length := max - min + 1
+		result := make([]int, length)
+		for i := 0; i < length; i++ {
+			result[i] = min + i
+		}
+		return result
+	}
+
 	tests := []rangeTest{
 		{
 			name:     "TwoInputs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewInputExpression(1),
-			expected: NewIntRange(1, 81),
+			expected: makeIntRange(1, 81),
 		},
 		{
 			name:     "TwoLiterals",
 			lhs:      NewLiteralExpression(5),
 			rhs:      NewLiteralExpression(3),
-			expected: NewIntRange(15, 15),
+			expected: []int{15},
 		},
 		{
 			name:     "InputAndLiteral",
 			lhs:      NewInputExpression(0),
 			rhs:      NewLiteralExpression(3),
-			expected: NewIntRangeWithStep(3, 27, 3),
+			expected: []int{3, 6, 9, 12, 15, 18, 21, 24, 27},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewMultiplyExpression(test.lhs, test.rhs)
-			actual := expr.Range()
-			if actual != test.expected {
-				t.Errorf("%s: expected range %v but got %v", expr.String(), test.expected, actual)
+			actual := GetAllValuesOfRange(expr.Range())
+
+			if len(actual) != len(test.expected) {
+				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+			}
+
+			for i := range test.expected {
+				if actual[i] != test.expected[i] {
+					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+				}
 			}
 		})
 	}

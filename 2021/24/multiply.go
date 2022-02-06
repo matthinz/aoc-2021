@@ -1,12 +1,17 @@
 package d24
 
 import (
+	"fmt"
 	"log"
-	"math"
 )
 
 type MultiplyExpression struct {
 	binaryExpression
+}
+
+type multiplyRange struct {
+	lhs Range
+	rhs Range
 }
 
 func NewMultiplyExpression(lhs, rhs Expression) Expression {
@@ -33,75 +38,70 @@ func (e *MultiplyExpression) FindInputs(target int, d InputDecider, l *log.Logge
 	return findInputsForBinaryExpression(
 		e,
 		target,
-		func(lhsValue int, rhsRange IntRange) ([]int, error) {
-			if target == 0 {
-				if lhsValue != 0 {
-					// rhsValue *must* be zero
-					if rhsRange.Includes(0) {
-						return []int{0}, nil
+		func(lhsValue int, rhsRange Range) (chan int, error) {
+
+			ch := make(chan int)
+
+			go func() {
+				defer close(ch)
+
+				if target == 0 {
+
+					if lhsValue != 0 {
+						// rhsValue *must* be zero
+						if rhsRange.Includes(0) {
+							ch <- 0
+							return
+						}
 					}
+				} else if target == lhsValue {
+					if rhsRange.Includes(1) {
+						ch <- 1
+					}
+					return
 				}
 
-				// lhsValue is zero, so rhsValue can be literally *any* number
-				if rhsRange.Len() == 1 {
-					return []int{rhsRange.min}, nil
+				rhsValues := rhsRange.Values()
+				for rhsValue := range rhsValues {
+					ch <- rhsValue
 				}
+			}()
 
-				return rhsRange.Values(), nil
-			}
-
-			if target == lhsValue {
-				if rhsRange.Includes(1) {
-					return []int{1}, nil
-				} else {
-					return []int{}, nil
-				}
-			}
-
-			var result []int
-
-			for i := rhsRange.min; i <= rhsRange.max; i++ {
-				if lhsValue*i == target {
-					result = append(result, i)
-				}
-			}
-
-			return result, nil
+			return ch, nil
 		},
 		d,
 		l,
 	)
 }
 
-func (e *MultiplyExpression) Range() IntRange {
-	lhsRange := e.lhs.Range()
-	rhsRange := e.rhs.Range()
+func (e *MultiplyExpression) Range() Range {
 
-	if lhsRange.Len() == 1 && rhsRange.Len() == 1 {
-		return NewIntRange(lhsRange.min*rhsRange.max, lhsRange.min*rhsRange.max)
+	lhsRange := e.Lhs().Range()
+	rhsRange := e.Rhs().Range()
+
+	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
+	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+
+	if lhsIsContinuous && rhsIsContinuous {
+		if lhsContinuous.min == lhsContinuous.max {
+			return newContinuousRange(
+				lhsContinuous.min*rhsContinuous.min,
+				lhsContinuous.max*rhsContinuous.max,
+				lhsContinuous.min,
+			)
+		} else if rhsContinuous.min == rhsContinuous.max {
+			return newContinuousRange(
+				lhsContinuous.min*rhsContinuous.min,
+				lhsContinuous.max*rhsContinuous.max,
+				rhsContinuous.min,
+			)
+		}
 	}
 
-	if lhsRange.Len() == 1 {
-		return NewIntRangeWithStep(
-			lhsRange.min*rhsRange.min,
-			lhsRange.max*rhsRange.max,
-			int(math.Abs(float64(lhsRange.min))),
-		)
+	return &multiplyRange{
+		lhs: lhsRange,
+		rhs: rhsRange,
 	}
-
-	if rhsRange.Len() == 1 {
-		return NewIntRangeWithStep(
-			lhsRange.min*rhsRange.min,
-			lhsRange.max*rhsRange.max,
-			int(math.Abs(float64(rhsRange.min))),
-		)
-	}
-
-	return NewIntRange(
-		lhsRange.min*rhsRange.min,
-		lhsRange.max*rhsRange.max,
-		// TODO: Figure out how to do step here.
-	)
 }
 
 func (e *MultiplyExpression) Simplify() Expression {
@@ -115,22 +115,29 @@ func (e *MultiplyExpression) Simplify() Expression {
 	lhsRange := lhs.Range()
 	rhsRange := rhs.Range()
 
+	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
+	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+
 	// if both ranges are single numbers, we are doing literal multiplication
-	if lhsRange.Len() == 1 && rhsRange.Len() == 1 {
-		return NewLiteralExpression(lhsRange.min * rhsRange.min)
+	if lhsIsSingleValue && rhsIsSingleValue {
+		return NewLiteralExpression(lhsSingleValue * rhsSingleValue)
 	}
 
 	// if either range is just "0", we'll evaluate to 0
-	if (lhsRange.EqualsInt(0)) || (rhsRange.EqualsInt(0)) {
+	if lhsIsSingleValue && lhsSingleValue == 0 {
+		return zeroLiteral
+	}
+
+	if rhsIsSingleValue && rhsSingleValue == 0 {
 		return zeroLiteral
 	}
 
 	// if either range is just "1", we evaluate to the other
-	if lhsRange.EqualsInt(1) {
+	if lhsIsSingleValue && lhsSingleValue == 1 {
 		return rhs
 	}
 
-	if rhsRange.EqualsInt(1) {
+	if rhsIsSingleValue && rhsSingleValue == 1 {
 		return lhs
 	}
 
@@ -138,4 +145,40 @@ func (e *MultiplyExpression) Simplify() Expression {
 	expr.(*MultiplyExpression).isSimplified = true
 
 	return expr
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// multiplyRange
+
+func (r *multiplyRange) Includes(value int) bool {
+	for i := range r.Values() {
+		if i == value {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *multiplyRange) Split(around int) (Range, Range, Range) {
+	return newSplitRanges(r, around)
+}
+
+func (r *multiplyRange) String() string {
+	return fmt.Sprintf("(%s * %s)", r.lhs.String(), r.rhs.String())
+}
+
+func (r *multiplyRange) Values() chan int {
+	result := make(chan int)
+
+	go func() {
+		defer close(result)
+
+		for lhsValue := range r.lhs.Values() {
+			for rhsValue := range r.rhs.Values() {
+				result <- lhsValue * rhsValue
+			}
+		}
+	}()
+
+	return result
 }

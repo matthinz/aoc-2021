@@ -2,7 +2,6 @@ package d24
 
 import (
 	_ "embed"
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -16,7 +15,6 @@ func TestParseRealInputFindsAllInputsInZ(t *testing.T) {
 	r.z.Accept(func(e Expression) {
 		ie, ok := e.(*InputExpression)
 		if ok {
-			fmt.Println(ie)
 			inputsFound[ie.index]++
 		}
 	})

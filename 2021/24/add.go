@@ -3,12 +3,17 @@ package d24
 import (
 	"fmt"
 	"log"
-	"strings"
 )
 
 // AddExpression defines a BinaryExpression that adds its left and righthand sides.
 type AddExpression struct {
 	binaryExpression
+}
+
+// sumRange is a Range implementation that represents two other Ranges
+// summed together.
+type sumRange struct {
+	lhs, rhs Range
 }
 
 func NewAddExpression(lhs, rhs Expression) Expression {
@@ -35,26 +40,53 @@ func (e *AddExpression) FindInputs(target int, d InputDecider, l *log.Logger) (m
 	return findInputsForBinaryExpression(
 		e,
 		target,
-		func(lhsValue int, rhsRange IntRange) ([]int, error) {
-			rhsValue := target - lhsValue
-			if rhsValue < rhsRange.min || rhsValue > rhsRange.max {
-				return []int{}, nil
-			}
-			return []int{rhsValue}, nil
+		func(lhsValue int, rhsRange Range) (chan int, error) {
+			ch := make(chan int)
+
+			go func() {
+				defer close(ch)
+
+				rhsValue := target - lhsValue
+				if rhsRange.Includes(rhsValue) {
+					ch <- rhsValue
+				}
+			}()
+
+			return ch, nil
 		},
 		d,
 		l,
 	)
 }
 
-func (e *AddExpression) Range() IntRange {
-	lhsRange := e.lhs.Range()
-	rhsRange := e.rhs.Range()
+func (e *AddExpression) Range() Range {
 
-	return NewIntRange(
-		lhsRange.min+rhsRange.min,
-		lhsRange.max+rhsRange.max,
-	)
+	lhsRange := e.Lhs().Range()
+	rhsRange := e.Rhs().Range()
+
+	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
+	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+
+	if lhsIsContinuous && rhsIsContinuous {
+		if lhsContinuous.step == 1 {
+			return &continuousRange{
+				min:  lhsContinuous.min + rhsContinuous.min,
+				max:  lhsContinuous.max + rhsContinuous.max,
+				step: rhsContinuous.step,
+			}
+		} else if rhsContinuous.step == 1 {
+			return &continuousRange{
+				min:  lhsContinuous.min + rhsContinuous.min,
+				max:  lhsContinuous.max + rhsContinuous.max,
+				step: lhsContinuous.step,
+			}
+		}
+	}
+
+	return &sumRange{
+		lhs: lhsRange,
+		rhs: rhsRange,
+	}
 }
 
 func (e *AddExpression) Simplify() Expression {
@@ -69,16 +101,19 @@ func (e *AddExpression) Simplify() Expression {
 	rhsRange := rhs.Range()
 
 	// if both ranges are single numbers we are adding two literals
-	if lhsRange.Len() == 1 && rhsRange.Len() == 1 {
-		return NewLiteralExpression(lhsRange.min + rhsRange.min)
+	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
+	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+
+	if lhsIsSingleValue && rhsIsSingleValue {
+		return NewLiteralExpression(lhsSingleValue + rhsSingleValue)
 	}
 
 	// if either range is zero, use the other
-	if lhsRange.EqualsInt(0) {
+	if lhsIsSingleValue && lhsSingleValue == 0 {
 		return rhs
 	}
 
-	if rhsRange.EqualsInt(0) {
+	if rhsIsSingleValue && rhsSingleValue == 0 {
 		return lhs
 	}
 
@@ -88,11 +123,44 @@ func (e *AddExpression) Simplify() Expression {
 	return result
 }
 
-func (e *AddExpression) String() string {
-	rhsRange := e.rhs.Range()
-	if rhsRange.LessThanInt(0) {
-		return fmt.Sprintf("(%s - %s)", e.lhs.String(), strings.Replace(e.rhs.String(), "-", "", 1))
-	} else {
-		return fmt.Sprintf("(%s + %s)", e.lhs.String(), e.rhs.String())
+////////////////////////////////////////////////////////////////////////////////
+// sumRange
+
+func (r *sumRange) Includes(value int) bool {
+	values := r.Values()
+	for v := range values {
+		if v == value {
+			return true
+		}
 	}
+	return false
+}
+
+func (r *sumRange) Split(around int) (Range, Range, Range) {
+	return newSplitRanges(r, around)
+}
+
+func (r *sumRange) String() string {
+	return fmt.Sprintf("(%s + %s)", r.lhs.String(), r.rhs.String())
+}
+
+func (r *sumRange) Values() chan int {
+	ch := make(chan int)
+
+	// lhsContinuous, lhsIsContinuous := r.lhs.(ContinuousRange)
+	// rhsContinuous, rhsIsContinuous := r.rhs.(ContinuousRange)
+
+	go func() {
+		defer close(ch)
+
+		lhsValues := r.lhs.Values()
+		for lhsValue := range lhsValues {
+			rhsValues := r.rhs.Values()
+			for rhsValue := range rhsValues {
+				ch <- lhsValue + rhsValue
+			}
+		}
+	}()
+
+	return ch
 }

@@ -159,10 +159,17 @@ func TestEqualsExpressionFindInputs(t *testing.T) {
 
 func TestEqualsExpressionRange(t *testing.T) {
 	expr := NewEqualsExpression(NewLiteralExpression(5), NewLiteralExpression(8))
-	expected := NewIntRange(0, 1)
-	actual := expr.Range()
-	if actual != expected {
-		t.Errorf("Expected range %v, but got %v", expected, actual)
+	expected := []int{0, 1}
+	actual := GetAllValuesOfRange(expr.Range())
+
+	if len(actual) != len(expected) {
+		t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), expected, len(expected), actual, len(actual))
+	}
+
+	for i := range expected {
+		if actual[i] != expected[i] {
+			t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), expected, len(expected), actual, len(actual))
+		}
 	}
 }
 

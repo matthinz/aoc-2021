@@ -3,11 +3,14 @@ package d24
 import (
 	"fmt"
 	"log"
-	"math"
 )
 
 type DivideExpression struct {
 	binaryExpression
+}
+
+type divisionRange struct {
+	lhs, rhs Range
 }
 
 func NewDivideExpression(lhs, rhs Expression) Expression {
@@ -34,52 +37,78 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 	return findInputsForBinaryExpression(
 		e,
 		target,
-		func(dividend int, divisorRange IntRange) ([]int, error) {
+		func(dividend int, divisorRange Range) (chan int, error) {
 
 			// 4th grade math recap: dividend / divisor = target
 			// here we return potential divisors between min and max that will equal target
 
-			if target == 0 {
-				// When target == 0, divisor can't affect the result, except when it
-				// can. We're doing integer division, so a large enough divisor *could* get us to zero
-				// e.g if we're doing 6 / x = 0, any x > 6 will result in 0
-				i, err := NewIntRange(dividend+1, math.MaxInt).Intersect(divisorRange)
-				if err != nil {
-					return nil, err
+			ch := make(chan int)
+
+			go func() {
+				defer close(ch)
+
+				if target == 0 {
+					// When target == 0, divisor can't affect the result, except when it
+					// can. We're doing integer division, so a large enough divisor *could* get us to zero
+					// e.g if we're doing 6 / x = 0, any x > 6 will result in 0
+
+					potentialDivisors := divisorRange.Values()
+
+					if dividend == 0 {
+						// It does not matter what the divisor is -- any non-zero value
+						// in divisorRange will work
+						for divisor := range potentialDivisors {
+							if divisor != 0 {
+								ch <- divisor
+							}
+						}
+						return
+					}
+
+					// Any number *larger* than dividend will result in 0
+					for divisor := range potentialDivisors {
+						if divisor == 0 {
+							continue
+						}
+						if divisor > dividend {
+							ch <- divisor
+						}
+					}
+					return
 				}
-				return i.Values(), nil
-			}
 
-			// dividend = divisor * target
-			// divisor = dividend / target
-			divisor := dividend / target
+				// dividend / divisor = target
+				// dividend = divisor * target
+				// divisor = dividend / target
+				divisor := dividend / target
 
-			if divisor == 0 {
-				return nil, fmt.Errorf("Can't divide by zero")
-			}
+				if divisor == 0 {
+					return
+				}
 
-			if divisor < divisorRange.min || divisor > divisorRange.max {
-				return []int{}, nil
-			}
+				if dividend/divisor != target {
+					return
+				}
 
-			if dividend/divisor != target {
-				return []int{}, nil
-			}
+				if !divisorRange.Includes(divisor) {
+					return
+				}
 
-			return []int{divisor}, nil
+				ch <- divisor
+			}()
+
+			return ch, nil
 		},
 		d,
 		l,
 	)
 }
 
-func (e *DivideExpression) Range() IntRange {
-	lhsRange := e.lhs.Range()
-	rhsRange := e.rhs.Range()
-	return NewIntRange(
-		lhsRange.min/rhsRange.max,
-		lhsRange.max/rhsRange.min,
-	)
+func (e *DivideExpression) Range() Range {
+	return &divisionRange{
+		lhs: e.Lhs().Range(),
+		rhs: e.Rhs().Range(),
+	}
 }
 
 func (e *DivideExpression) Simplify() Expression {
@@ -93,23 +122,72 @@ func (e *DivideExpression) Simplify() Expression {
 	lhsRange := lhs.Range()
 	rhsRange := rhs.Range()
 
-	// if both ranges are single numbers, we can sub in a literal
-	if lhsRange.Len() == 1 && rhsRange.Len() == 1 {
-		return NewLiteralExpression(lhsRange.min / rhsRange.min)
+	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
+	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+
+	if lhsIsSingleValue && rhsIsSingleValue {
+		return NewLiteralExpression(lhsSingleValue / rhsSingleValue)
 	}
 
 	// if left value is zero, this will eval to zero
-	if lhsRange.EqualsInt(0) {
+	if lhsIsSingleValue && lhsSingleValue == 0 {
 		return NewLiteralExpression(0)
 	}
 
 	// if right value is 1, this will eval to lhs
-	if rhsRange.EqualsInt(1) {
+	if rhsIsSingleValue && rhsSingleValue == 1 {
 		return lhs
 	}
 
 	result := NewDivideExpression(lhs, rhs)
 	result.(*DivideExpression).isSimplified = true
+
+	return result
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// divisionRange
+
+func (r *divisionRange) Includes(value int) bool {
+	for i := range r.Values() {
+		if i == value {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *divisionRange) Split(around int) (Range, Range, Range) {
+	return newSplitRanges(r, around)
+}
+
+func (r *divisionRange) String() string {
+	return fmt.Sprintf("%s + %s", r.lhs.String(), r.rhs.String())
+}
+
+func (r *divisionRange) Values() chan int {
+	result := make(chan int)
+
+	go func() {
+		defer close(result)
+
+		var prevValue *int
+
+		lhsValues := r.lhs.Values()
+		for lhsValue := range lhsValues {
+			rhsValues := r.rhs.Values()
+			for rhsValue := range rhsValues {
+				if rhsValue == 0 {
+					continue
+				}
+				value := lhsValue / rhsValue
+				if prevValue == nil || value != *prevValue {
+					result <- value
+					prevValue = &value
+				}
+			}
+		}
+	}()
 
 	return result
 }

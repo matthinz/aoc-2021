@@ -106,35 +106,42 @@ func TestAddExpressionRange(t *testing.T) {
 		name     string
 		lhs      Expression
 		rhs      Expression
-		expected IntRange
+		expected []int
 	}
 	tests := []rangeTest{
 		{
 			name:     "TwoInputs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewInputExpression(1),
-			expected: NewIntRange(2, 18),
+			expected: []int{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18},
 		},
 		{
 			name:     "TwoLiterals",
 			lhs:      NewLiteralExpression(100),
 			rhs:      NewLiteralExpression(-500),
-			expected: NewIntRange(-400, -400),
+			expected: []int{-400},
 		},
 		{
 			name:     "InputAndLiteral",
 			lhs:      NewInputExpression(0),
 			rhs:      NewLiteralExpression(-8),
-			expected: NewIntRange(-7, 1),
+			expected: []int{-7, -6, -5, -4, -3, -2, -1, 0, 1},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewAddExpression(test.lhs, test.rhs)
-			actual := expr.Range()
-			if actual != test.expected {
-				t.Errorf("%s: expected range %v but got %v", expr.String(), test.expected, actual)
+			actual := GetAllValuesOfRange(expr.Range())
+
+			if len(actual) != len(test.expected) {
+				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+			}
+
+			for i := range test.expected {
+				if actual[i] != test.expected[i] {
+					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+				}
 			}
 		})
 	}

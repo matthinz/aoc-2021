@@ -33,8 +33,12 @@ func (e *LiteralExpression) FindInputs(target int, d InputDecider, l *log.Logger
 	return map[int]int{}, nil
 }
 
-func (e *LiteralExpression) Range() IntRange {
-	return NewIntRange(e.value, e.value)
+func (e *LiteralExpression) Range() Range {
+	return &continuousRange{
+		min:  e.value,
+		max:  e.value,
+		step: 1,
+	}
 }
 
 func (e *LiteralExpression) Simplify() Expression {

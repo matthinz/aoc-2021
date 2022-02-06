@@ -13,6 +13,8 @@ const MinInputValue = 1
 
 const MaxInputValue = 9
 
+var inputRange = continuousRange{min: MinInputValue, max: MaxInputValue, step: 1}
+
 func NewInputExpression(index int) Expression {
 	return &InputExpression{index}
 }
@@ -35,8 +37,20 @@ func (e *InputExpression) FindInputs(target int, d InputDecider, l *log.Logger) 
 	return m, nil
 }
 
-func (e *InputExpression) Range() IntRange {
-	return NewIntRange(MinInputValue, MaxInputValue)
+func (e *InputExpression) Includes(value int) bool {
+	return value >= MinInputValue && value <= MaxInputValue
+}
+
+func (e *InputExpression) Max() int {
+	return MaxInputValue
+}
+
+func (e *InputExpression) Min() int {
+	return MinInputValue
+}
+
+func (e *InputExpression) Range() Range {
+	return &inputRange
 }
 
 func (e *InputExpression) Simplify() Expression {

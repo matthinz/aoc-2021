@@ -3,10 +3,17 @@ package d24
 import (
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 )
 
 type EqualsExpression struct {
 	binaryExpression
+}
+
+type equalsRange struct {
+	lhs Range
+	rhs Range
 }
 
 func NewEqualsExpression(lhs, rhs Expression) Expression {
@@ -43,39 +50,50 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 	return findInputsForBinaryExpression(
 		e,
 		target,
-		func(lhsValue int, rhsRange IntRange) ([]int, error) {
-			if target == 0 {
-				// We must find *any* rhsValue that does not equal lhsValue
-				if rhsRange.EqualsInt(lhsValue) {
-					return []int{}, nil
-				} else if rhsRange.Len() == 1 {
-					return []int{rhsRange.min}, nil
-				}
+		func(lhsValue int, rhsRange Range) (chan int, error) {
+			ch := make(chan int)
 
-				result := make([]int, 0, rhsRange.Len())
-				for i := rhsRange.min; i <= rhsRange.max; i++ {
-					if i != lhsValue {
-						result = append(result, i)
+			go func() {
+				defer close(ch)
+
+				if target == 0 {
+
+					rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+
+					if rhsIsSingleValue && rhsSingleValue == lhsValue {
+						return
+					} else if rhsIsSingleValue {
+						ch <- rhsSingleValue
+						return
 					}
+
+					rhsValues := rhsRange.Values()
+					for rhsValue := range rhsValues {
+						ch <- rhsValue
+					}
+
+					return
 				}
 
-				return result, nil
-			}
+				// We must find a value in rhsRange that equals lhsValue
 
-			// We must find a value in rhsRange that equals lhsValue
-			if rhsRange.Includes(lhsValue) {
-				return []int{lhsValue}, nil
-			}
+				if rhsRange.Includes(lhsValue) {
+					ch <- lhsValue
+				}
+			}()
 
-			return []int{lhsValue}, nil
+			return ch, nil
 		},
 		d,
 		l,
 	)
 }
 
-func (e *EqualsExpression) Range() IntRange {
-	return NewIntRange(0, 1)
+func (e *EqualsExpression) Range() Range {
+	return &equalsRange{
+		lhs: e.Lhs().Range(),
+		rhs: e.Rhs().Range(),
+	}
 }
 
 func (e *EqualsExpression) Simplify() Expression {
@@ -90,14 +108,13 @@ func (e *EqualsExpression) Simplify() Expression {
 	rhsRange := rhs.Range()
 
 	// if all elements of both ranges are equal, we are comparing two equal values
-	if lhsRange == rhsRange {
+	if RangesAreEqual(lhsRange, rhsRange) {
 		return oneLiteral
 	}
 
-	// if the ranges of each side of the comparison will never intersect,
+	// If the ranges of each side of the comparison will never intersect,
 	// then we can always return "0" for this expression
-
-	if !lhsRange.IntersectsRange(rhsRange) {
+	if !RangesIntersect(lhsRange, rhsRange) {
 		return zeroLiteral
 	}
 
@@ -109,4 +126,47 @@ func (e *EqualsExpression) Simplify() Expression {
 
 func (e *EqualsExpression) String() string {
 	return fmt.Sprintf("(%s == %s ? 1 : 0)", e.lhs.String(), e.rhs.String())
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// equalsRange
+
+func (r *equalsRange) Includes(value int) bool {
+	if value != 0 && value != 1 {
+		return false
+	}
+
+	values := r.Values()
+	for v := range values {
+		if v == value {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *equalsRange) Split(around int) (Range, Range, Range) {
+	return newSplitRanges(r, around)
+}
+
+func (r *equalsRange) String() string {
+	var values []string
+	for value := range r.Values() {
+		values = append(values, strconv.FormatInt(int64(value), 10))
+	}
+
+	return fmt.Sprintf("(%s)", strings.Join(values, ","))
+}
+
+func (r *equalsRange) Values() chan int {
+	result := make(chan int)
+	go func() {
+		defer close(result)
+		// TODO: The actual values
+		result <- 0
+		result <- 1
+
+	}()
+	return result
 }

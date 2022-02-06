@@ -138,35 +138,42 @@ func TestDivideExpressionRange(t *testing.T) {
 		name     string
 		lhs      Expression
 		rhs      Expression
-		expected IntRange
+		expected []int
 	}
 	tests := []rangeTest{
 		{
 			name:     "TwoInputs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewInputExpression(1),
-			expected: NewIntRange(0, 9),
+			expected: []int{1, 0, 2, 1, 0, 3, 1, 0, 4, 2, 1, 0, 5, 2, 1, 0, 6, 3, 2, 1, 0, 7, 3, 2, 1, 0, 8, 4, 2, 1, 0, 9, 4, 3, 2, 1},
 		},
 		{
 			name:     "TwoLiterals",
 			lhs:      NewLiteralExpression(15),
 			rhs:      NewLiteralExpression(-5),
-			expected: NewIntRange(-3, -3),
+			expected: []int{-3},
 		},
 		{
 			name:     "InputAndLiteral",
 			lhs:      NewInputExpression(0),
 			rhs:      NewLiteralExpression(3),
-			expected: NewIntRange(0, 3),
+			expected: []int{0, 1, 2, 3},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewDivideExpression(test.lhs, test.rhs)
-			actual := expr.Range()
-			if actual != test.expected {
-				t.Errorf("%s: expected range %v but got %v", expr.String(), test.expected, actual)
+			actual := GetAllValuesOfRange(expr.Range())
+
+			if len(actual) != len(test.expected) {
+				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+			}
+
+			for i := range test.expected {
+				if actual[i] != test.expected[i] {
+					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+				}
 			}
 		})
 	}
