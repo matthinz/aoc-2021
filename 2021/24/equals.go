@@ -57,26 +57,17 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 				defer close(ch)
 
 				if target == 0 {
-
-					rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
-
-					if rhsIsSingleValue && rhsSingleValue == lhsValue {
-						return
-					} else if rhsIsSingleValue {
-						ch <- rhsSingleValue
-						return
-					}
-
-					rhsValues := rhsRange.Values()
-					for rhsValue := range rhsValues {
-						ch <- rhsValue
+					// We want any members of rhsRange *not equal to* lhsValue
+					for rhsValue := range rhsRange.Values() {
+						if rhsValue != lhsValue {
+							ch <- rhsValue
+						}
 					}
 
 					return
 				}
 
 				// We must find a value in rhsRange that equals lhsValue
-
 				if rhsRange.Includes(lhsValue) {
 					ch <- lhsValue
 				}
@@ -146,7 +137,7 @@ func (r *equalsRange) Includes(value int) bool {
 	return false
 }
 
-func (r *equalsRange) Split(around int) (Range, Range, Range) {
+func (r *equalsRange) Split(around Range) (Range, Range, Range) {
 	return newSplitRanges(r, around)
 }
 

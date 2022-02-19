@@ -10,6 +10,7 @@ import (
 var realInput string
 
 func TestParseRealInputFindsAllInputsInZ(t *testing.T) {
+	t.Skip()
 	r := parseInput(strings.NewReader(realInput))
 	inputsFound := make(map[int]int)
 	r.z.Accept(func(e Expression) {

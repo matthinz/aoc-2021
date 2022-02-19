@@ -157,7 +157,7 @@ func (r *divisionRange) Includes(value int) bool {
 	return false
 }
 
-func (r *divisionRange) Split(around int) (Range, Range, Range) {
+func (r *divisionRange) Split(around Range) (Range, Range, Range) {
 	return newSplitRanges(r, around)
 }
 

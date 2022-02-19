@@ -3,6 +3,7 @@ package d24
 import (
 	"fmt"
 	"log"
+	"time"
 )
 
 // AddExpression defines a BinaryExpression that adds its left and righthand sides.
@@ -97,8 +98,15 @@ func (e *AddExpression) Simplify() Expression {
 	lhs := e.lhs.Simplify()
 	rhs := e.rhs.Simplify()
 
+	fmt.Printf("BEFORE lhs: %s\nrhs: %s\n", lhs.String(), rhs.String())
+
+	start := time.Now()
 	lhsRange := lhs.Range()
+	fmt.Printf("AFTER lhs: %s (%s)\n", lhsRange.String(), time.Now().Sub(start))
+
+	start = time.Now()
 	rhsRange := rhs.Range()
+	fmt.Printf("AFTER rhs: %s (%s)\n", rhsRange.String(), time.Now().Sub(start))
 
 	// if both ranges are single numbers we are adding two literals
 	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
@@ -136,7 +144,7 @@ func (r *sumRange) Includes(value int) bool {
 	return false
 }
 
-func (r *sumRange) Split(around int) (Range, Range, Range) {
+func (r *sumRange) Split(around Range) (Range, Range, Range) {
 	return newSplitRanges(r, around)
 }
 
@@ -147,17 +155,41 @@ func (r *sumRange) String() string {
 func (r *sumRange) Values() chan int {
 	ch := make(chan int)
 
-	// lhsContinuous, lhsIsContinuous := r.lhs.(ContinuousRange)
-	// rhsContinuous, rhsIsContinuous := r.rhs.(ContinuousRange)
-
 	go func() {
 		defer close(ch)
 
-		lhsValues := r.lhs.Values()
-		for lhsValue := range lhsValues {
-			rhsValues := r.rhs.Values()
-			for rhsValue := range rhsValues {
-				ch <- lhsValue + rhsValue
+		var prevValue *int
+		var min *int
+		var max *int
+
+		for lhsValue := range r.lhs.Values() {
+			for rhsValue := range r.rhs.Values() {
+
+				value := lhsValue + rhsValue
+
+				if prevValue != nil && value == *prevValue {
+					continue
+				}
+
+				if min != nil && value == *min {
+					continue
+				}
+
+				if max != nil && value == *max {
+					continue
+				}
+
+				ch <- value
+
+				prevValue = &value
+
+				if min == nil || value < *min {
+					min = &value
+				}
+
+				if max == nil || value > *max {
+					max = &value
+				}
 			}
 		}
 	}()

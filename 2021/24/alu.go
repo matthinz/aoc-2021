@@ -19,7 +19,11 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 
 	const Digits = 14
 
+	l.Printf("parsing...")
+
 	reg := parseInput(r)
+
+	l.Printf("parsed")
 
 	inputs, err := reg.z.FindInputs(0, PreferInputsThatMakeLargerNumber, l)
 

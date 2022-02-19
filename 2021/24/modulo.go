@@ -139,7 +139,7 @@ func (r *moduloRange) Includes(value int) bool {
 	return false
 }
 
-func (r *moduloRange) Split(around int) (Range, Range, Range) {
+func (r *moduloRange) Split(around Range) (Range, Range, Range) {
 	return newSplitRanges(r, around)
 }
 
@@ -147,41 +147,25 @@ func (r *moduloRange) Values() chan int {
 	ch := make(chan int)
 
 	go func() {
+		defer close(ch)
 
-		lhsContinuous, lhsIsContinuous := r.lhs.(*continuousRange)
-		rhsContinuous, rhsIsContinuous := r.rhs.(*continuousRange)
+		for rhsValue := range r.rhs.Values() {
+			values := make(map[int]int)
 
-		var min, max *int
-		var hitMin, hitMax int
-
-		var prevValue *int
-
-		for lhsValue := range r.lhs.Values() {
-			for rhsValue := range r.rhs.Values() {
-
+			for lhsValue := range r.lhs.Values() {
 				value := lhsValue % rhsValue
+				values[value]++
 
-				if min != nil && value == *min {
-					hitMin++
+				if values[0] >= 2 {
+					break
 				}
+			}
 
-				if max != nil && value == *max {
-					hitMax++
-				}
-
-				if hitMin > 1 && hitMax > 1 {
-					continue
-				}
-
-				if prevValue != nil && value == *prevValue {
-					continue
-				}
-
+			for value := range values {
 				ch <- value
-				prevValue = &value
 			}
 		}
-		defer close(ch)
+
 	}()
 
 	return ch
@@ -198,7 +182,7 @@ func (r *moduloRange) String() string {
 	}
 
 	distinctValues := make([]int, 0)
-	for value, _ := range values {
+	for value := range values {
 		distinctValues = append(distinctValues, value)
 	}
 
@@ -210,4 +194,23 @@ func (r *moduloRange) String() string {
 	}
 
 	return strings.Join(stringValues, ",")
+}
+
+func makeContinuous(a, b, c Range) (*continuousRange, *continuousRange, *continuousRange) {
+	var outA, outB, outC *continuousRange
+
+	if a != nil {
+		outA = a.(*continuousRange)
+	}
+
+	if b != nil {
+		outB = b.(*continuousRange)
+	}
+
+	if c != nil {
+		outC = c.(*continuousRange)
+	}
+
+	return outA, outB, outC
+
 }

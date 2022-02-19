@@ -3,6 +3,7 @@ package d24
 import (
 	"fmt"
 	"log"
+	"math"
 )
 
 type MultiplyExpression struct {
@@ -61,9 +62,10 @@ func (e *MultiplyExpression) FindInputs(target int, d InputDecider, l *log.Logge
 					return
 				}
 
-				rhsValues := rhsRange.Values()
-				for rhsValue := range rhsValues {
-					ch <- rhsValue
+				for rhsValue := range rhsRange.Values() {
+					if lhsValue*rhsValue == target {
+						ch <- rhsValue
+					}
 				}
 			}()
 
@@ -159,7 +161,7 @@ func (r *multiplyRange) Includes(value int) bool {
 	return false
 }
 
-func (r *multiplyRange) Split(around int) (Range, Range, Range) {
+func (r *multiplyRange) Split(around Range) (Range, Range, Range) {
 	return newSplitRanges(r, around)
 }
 
@@ -168,17 +170,45 @@ func (r *multiplyRange) String() string {
 }
 
 func (r *multiplyRange) Values() chan int {
-	result := make(chan int)
+	ch := make(chan int)
 
 	go func() {
-		defer close(result)
+		defer close(ch)
+
+		min := math.MaxInt
+		max := math.MinInt
+		var prev *int
 
 		for lhsValue := range r.lhs.Values() {
 			for rhsValue := range r.rhs.Values() {
-				result <- lhsValue * rhsValue
+				value := lhsValue * rhsValue
+
+				if value == min {
+					continue
+				}
+
+				if value == max {
+					continue
+				}
+
+				if prev != nil && value == *prev {
+					continue
+				}
+
+				ch <- value
+
+				prev = &value
+
+				if value < min {
+					min = value
+				}
+
+				if value > max {
+					max = value
+				}
 			}
 		}
 	}()
 
-	return result
+	return ch
 }

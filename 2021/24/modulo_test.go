@@ -2,6 +2,7 @@ package d24
 
 import (
 	"log"
+	"sort"
 	"testing"
 )
 
@@ -140,7 +141,7 @@ func TestModuloExpressionRange(t *testing.T) {
 			name:     "TwoInputs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewInputExpression(1),
-			expected: []int{0, 1, 2, 3, 4, 5, 6, 7, 8},
+			expected: []int{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 8},
 		},
 		{
 			name:     "TwoLiterals",
@@ -152,42 +153,46 @@ func TestModuloExpressionRange(t *testing.T) {
 			name:     "InputAndLiteral",
 			lhs:      NewInputExpression(0),
 			rhs:      NewLiteralExpression(3),
-			expected: []int{1, 2, 0},
+			expected: []int{0, 1, 2},
 		},
 		{
 			name:     "NegativeLiteralLhsRhsInput",
 			lhs:      NewLiteralExpression(-5),
 			rhs:      NewInputExpression(0),
-			expected: []int{0, -1, -2, -1, -5},
+			expected: []int{-5, -5, -5, -5, -2, -1, -1, 0, 0},
 		},
 		{
 			name:     "LhsInputNegativeLiteralRhs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewLiteralExpression(-5),
-			expected: []int{1, 2, 3, 4, 0},
+			expected: []int{0, 1, 2, 3, 4},
 		},
 		{
 			name:     "LargeLhsLargeRhs",
 			lhs:      NewLiteralExpression(1234567890),
 			rhs:      NewMultiplyExpression(NewLiteralExpression(251), NewInputExpression(0)),
-			expected: []int{43, 294, 545, 294, 1298, 1800},
+			expected: []int{43, 294, 294, 294, 294, 545, 1298, 1298, 1800},
 		},
 		{
 			name:     "NegativeInputLhsRhsLiteral",
 			lhs:      NewMultiplyExpression(NewLiteralExpression(-2), NewInputExpression(0)),
 			rhs:      NewLiteralExpression(4),
-			expected: []int{-2, -1, 0},
+			expected: []int{-2, 0},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewModuloExpression(test.lhs, test.rhs)
+
 			actual := GetAllValuesOfRange(expr.Range())
 
 			if len(actual) != len(test.expected) {
 				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
 			}
+
+			// NOTE: The order in which we get values is not stable, so we have to sort to compare
+			sort.Ints(actual)
 
 			for i := range test.expected {
 				if actual[i] != test.expected[i] {

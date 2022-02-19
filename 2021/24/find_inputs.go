@@ -2,8 +2,11 @@ package d24
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 )
+
+const ActuallyLog = true
 
 // Take a binary expression (e.g. a +, *, /, etc.) and find inputs required
 // to get it to equal <target>
@@ -15,37 +18,49 @@ func findInputsForBinaryExpression(
 	l *log.Logger,
 ) (map[int]int, error) {
 
+	if !ActuallyLog {
+		l = log.New(ioutil.Discard, "", log.Flags())
+	}
+
 	lhsRange := e.Lhs().Range()
 	rhsRange := e.Rhs().Range()
 
-	// l.Printf("findInputsForBinaryExpression: %s", e.String())
-	// l.Printf("lhs range: %v", lhsRange.String())
-	// l.Printf("rhs range: %v", rhsRange.String())
+	l.Printf("findInputsForBinaryExpression: %s", e.String())
+	l.Printf("lhs range: %v", lhsRange.String())
+	l.Printf("rhs range: %v", rhsRange.String())
 
 	var best map[int]int
 
 	// for each value in left side's range, look for a corresponding value in the
 	// right side's range and figure out the inputs needed to get them both to go there
-	lhsValues := lhsRange.Values()
-	for lhsValue := range lhsValues {
+	for lhsValue := range lhsRange.Values() {
+		l.Printf("lhsValue: %d", lhsValue)
+
 		potentialRhsValues, err := getRhsValues(lhsValue, rhsRange)
 
 		if err != nil {
+			l.Printf(err.Error())
 			continue
 		}
 
 		for rhsValue := range potentialRhsValues {
+			l.Printf("rhsValue: %d", rhsValue)
+
 			lhsInputs, err := e.Lhs().FindInputs(lhsValue, d, l)
 
 			if err != nil {
+				l.Printf(err.Error())
 				continue
 			}
 
 			rhsInputs, err := e.Rhs().FindInputs(rhsValue, d, l)
 
 			if err != nil {
+				l.Printf(err.Error())
 				continue
 			}
+
+			l.Printf("lhsInputs: %v, rhsInputs: %v", lhsInputs, rhsInputs)
 
 			bothSidesInSync := true
 			inputs := make(map[int]int, len(lhsInputs)+len(rhsInputs))
