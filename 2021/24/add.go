@@ -3,7 +3,6 @@ package d24
 import (
 	"fmt"
 	"log"
-	"time"
 )
 
 // AddExpression defines a BinaryExpression that adds its left and righthand sides.
@@ -14,7 +13,8 @@ type AddExpression struct {
 // sumRange is a Range implementation that represents two other Ranges
 // summed together.
 type sumRange struct {
-	lhs, rhs Range
+	lhs, rhs     Range
+	cachedValues *[]int
 }
 
 func NewAddExpression(lhs, rhs Expression) Expression {
@@ -62,6 +62,10 @@ func (e *AddExpression) FindInputs(target int, d InputDecider, l *log.Logger) (m
 
 func (e *AddExpression) Range() Range {
 
+	if e.cachedRange != nil {
+		return e.cachedRange
+	}
+
 	lhsRange := e.Lhs().Range()
 	rhsRange := e.Rhs().Range()
 
@@ -70,24 +74,26 @@ func (e *AddExpression) Range() Range {
 
 	if lhsIsContinuous && rhsIsContinuous {
 		if lhsContinuous.step == 1 {
-			return &continuousRange{
+			e.cachedRange = &continuousRange{
 				min:  lhsContinuous.min + rhsContinuous.min,
 				max:  lhsContinuous.max + rhsContinuous.max,
 				step: rhsContinuous.step,
 			}
 		} else if rhsContinuous.step == 1 {
-			return &continuousRange{
+			e.cachedRange = &continuousRange{
 				min:  lhsContinuous.min + rhsContinuous.min,
 				max:  lhsContinuous.max + rhsContinuous.max,
 				step: lhsContinuous.step,
 			}
 		}
+	} else {
+		e.cachedRange = &sumRange{
+			lhs: lhsRange,
+			rhs: rhsRange,
+		}
 	}
 
-	return &sumRange{
-		lhs: lhsRange,
-		rhs: rhsRange,
-	}
+	return e.cachedRange
 }
 
 func (e *AddExpression) Simplify() Expression {
@@ -98,15 +104,8 @@ func (e *AddExpression) Simplify() Expression {
 	lhs := e.lhs.Simplify()
 	rhs := e.rhs.Simplify()
 
-	fmt.Printf("BEFORE lhs: %s\nrhs: %s\n", lhs.String(), rhs.String())
-
-	start := time.Now()
 	lhsRange := lhs.Range()
-	fmt.Printf("AFTER lhs: %s (%s)\n", lhsRange.String(), time.Now().Sub(start))
-
-	start = time.Now()
 	rhsRange := rhs.Range()
-	fmt.Printf("AFTER rhs: %s (%s)\n", rhsRange.String(), time.Now().Sub(start))
 
 	// if both ranges are single numbers we are adding two literals
 	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
@@ -158,39 +157,16 @@ func (r *sumRange) Values() chan int {
 	go func() {
 		defer close(ch)
 
-		var prevValue *int
-		var min *int
-		var max *int
+		if r.cachedValues == nil {
+			r.cachedValues = buildBinaryExpressionRangeValues(
+				r.lhs,
+				r.rhs,
+				func(lhsValue, rhsValue int) int { return lhsValue + rhsValue },
+			)
+		}
 
-		for lhsValue := range r.lhs.Values() {
-			for rhsValue := range r.rhs.Values() {
-
-				value := lhsValue + rhsValue
-
-				if prevValue != nil && value == *prevValue {
-					continue
-				}
-
-				if min != nil && value == *min {
-					continue
-				}
-
-				if max != nil && value == *max {
-					continue
-				}
-
-				ch <- value
-
-				prevValue = &value
-
-				if min == nil || value < *min {
-					min = &value
-				}
-
-				if max == nil || value > *max {
-					max = &value
-				}
-			}
+		for _, value := range *r.cachedValues {
+			ch <- value
 		}
 	}()
 

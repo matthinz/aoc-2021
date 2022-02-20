@@ -81,10 +81,13 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 }
 
 func (e *EqualsExpression) Range() Range {
-	return &equalsRange{
-		lhs: e.Lhs().Range(),
-		rhs: e.Rhs().Range(),
+	if e.cachedRange == nil {
+		e.cachedRange = &equalsRange{
+			lhs: e.Lhs().Range(),
+			rhs: e.Rhs().Range(),
+		}
 	}
+	return e.cachedRange
 }
 
 func (e *EqualsExpression) Simplify() Expression {
@@ -151,13 +154,13 @@ func (r *equalsRange) String() string {
 }
 
 func (r *equalsRange) Values() chan int {
-	result := make(chan int)
+	ch := make(chan int)
 	go func() {
-		defer close(result)
+		defer close(ch)
 		// TODO: The actual values
-		result <- 0
-		result <- 1
+		ch <- 0
+		ch <- 1
 
 	}()
-	return result
+	return ch
 }

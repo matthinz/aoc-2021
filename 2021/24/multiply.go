@@ -3,7 +3,6 @@ package d24
 import (
 	"fmt"
 	"log"
-	"math"
 )
 
 type MultiplyExpression struct {
@@ -11,8 +10,9 @@ type MultiplyExpression struct {
 }
 
 type multiplyRange struct {
-	lhs Range
-	rhs Range
+	lhs          Range
+	rhs          Range
+	cachedValues *[]int
 }
 
 func NewMultiplyExpression(lhs, rhs Expression) Expression {
@@ -78,6 +78,10 @@ func (e *MultiplyExpression) FindInputs(target int, d InputDecider, l *log.Logge
 
 func (e *MultiplyExpression) Range() Range {
 
+	if e.cachedRange != nil {
+		return e.cachedRange
+	}
+
 	lhsRange := e.Lhs().Range()
 	rhsRange := e.Rhs().Range()
 
@@ -86,13 +90,13 @@ func (e *MultiplyExpression) Range() Range {
 
 	if lhsIsContinuous && rhsIsContinuous {
 		if lhsContinuous.min == lhsContinuous.max {
-			return newContinuousRange(
+			e.cachedRange = newContinuousRange(
 				lhsContinuous.min*rhsContinuous.min,
 				lhsContinuous.max*rhsContinuous.max,
 				lhsContinuous.min,
 			)
 		} else if rhsContinuous.min == rhsContinuous.max {
-			return newContinuousRange(
+			e.cachedRange = newContinuousRange(
 				lhsContinuous.min*rhsContinuous.min,
 				lhsContinuous.max*rhsContinuous.max,
 				rhsContinuous.min,
@@ -100,10 +104,14 @@ func (e *MultiplyExpression) Range() Range {
 		}
 	}
 
-	return &multiplyRange{
-		lhs: lhsRange,
-		rhs: rhsRange,
+	if e.cachedRange == nil {
+		e.cachedRange = &multiplyRange{
+			lhs: lhsRange,
+			rhs: rhsRange,
+		}
 	}
+
+	return e.cachedRange
 }
 
 func (e *MultiplyExpression) Simplify() Expression {
@@ -175,38 +183,16 @@ func (r *multiplyRange) Values() chan int {
 	go func() {
 		defer close(ch)
 
-		min := math.MaxInt
-		max := math.MinInt
-		var prev *int
+		if r.cachedValues == nil {
+			r.cachedValues = buildBinaryExpressionRangeValues(
+				r.lhs,
+				r.rhs,
+				func(lhsValue, rhsValue int) int { return lhsValue * rhsValue },
+			)
+		}
 
-		for lhsValue := range r.lhs.Values() {
-			for rhsValue := range r.rhs.Values() {
-				value := lhsValue * rhsValue
-
-				if value == min {
-					continue
-				}
-
-				if value == max {
-					continue
-				}
-
-				if prev != nil && value == *prev {
-					continue
-				}
-
-				ch <- value
-
-				prev = &value
-
-				if value < min {
-					min = value
-				}
-
-				if value > max {
-					max = value
-				}
-			}
+		for _, value := range *r.cachedValues {
+			ch <- value
 		}
 	}()
 

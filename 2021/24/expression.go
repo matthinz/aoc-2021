@@ -36,6 +36,8 @@ type binaryExpression struct {
 	rhs      Expression
 	operator rune
 
+	cachedRange Range
+
 	// Whether this expression has been simplified already.
 	isSimplified bool
 }

@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-const ActuallyLog = true
+const ActuallyLog = false
 
 // Take a binary expression (e.g. a +, *, /, etc.) and find inputs required
 // to get it to equal <target>

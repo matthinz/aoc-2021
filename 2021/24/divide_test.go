@@ -2,6 +2,7 @@ package d24
 
 import (
 	"log"
+	"sort"
 	"testing"
 )
 
@@ -145,7 +146,7 @@ func TestDivideExpressionRange(t *testing.T) {
 			name:     "TwoInputs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewInputExpression(1),
-			expected: []int{1, 0, 2, 1, 0, 3, 1, 0, 4, 2, 1, 0, 5, 2, 1, 0, 6, 3, 2, 1, 0, 7, 3, 2, 1, 0, 8, 4, 2, 1, 0, 9, 4, 3, 2, 1},
+			expected: []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
 		},
 		{
 			name:     "TwoLiterals",
@@ -169,6 +170,8 @@ func TestDivideExpressionRange(t *testing.T) {
 			if len(actual) != len(test.expected) {
 				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
 			}
+
+			sort.Ints(actual)
 
 			for i := range test.expected {
 				if actual[i] != test.expected[i] {

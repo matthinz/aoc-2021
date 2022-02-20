@@ -131,3 +131,25 @@ func RangesIntersect(a, b Range) bool {
 	}
 	return false
 }
+
+func buildBinaryExpressionRangeValues(
+	lhs Range,
+	rhs Range,
+	op func(lhsValue, rhsValue int) int,
+) *[]int {
+	values := make(map[int]int)
+
+	for lhsValue := range lhs.Values() {
+		for rhsValue := range rhs.Values() {
+			value := op(lhsValue, rhsValue)
+			values[value]++
+		}
+	}
+
+	uniqueValues := make([]int, 0, len(values))
+	for value := range values {
+		uniqueValues = append(uniqueValues, value)
+	}
+
+	return &uniqueValues
+}

@@ -10,7 +10,8 @@ type DivideExpression struct {
 }
 
 type divisionRange struct {
-	lhs, rhs Range
+	lhs, rhs     Range
+	cachedValues *[]int
 }
 
 func NewDivideExpression(lhs, rhs Expression) Expression {
@@ -105,10 +106,14 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 }
 
 func (e *DivideExpression) Range() Range {
-	return &divisionRange{
-		lhs: e.Lhs().Range(),
-		rhs: e.Rhs().Range(),
+	if e.cachedRange == nil {
+		e.cachedRange = &divisionRange{
+			lhs: e.Lhs().Range(),
+			rhs: e.Rhs().Range(),
+		}
 	}
+
+	return e.cachedRange
 }
 
 func (e *DivideExpression) Simplify() Expression {
@@ -166,28 +171,23 @@ func (r *divisionRange) String() string {
 }
 
 func (r *divisionRange) Values() chan int {
-	result := make(chan int)
+	ch := make(chan int)
 
 	go func() {
-		defer close(result)
+		defer close(ch)
 
-		var prevValue *int
+		if r.cachedValues == nil {
+			r.cachedValues = buildBinaryExpressionRangeValues(
+				r.lhs,
+				r.rhs,
+				func(lhsValue, rhsValue int) int { return lhsValue / rhsValue },
+			)
+		}
 
-		lhsValues := r.lhs.Values()
-		for lhsValue := range lhsValues {
-			rhsValues := r.rhs.Values()
-			for rhsValue := range rhsValues {
-				if rhsValue == 0 {
-					continue
-				}
-				value := lhsValue / rhsValue
-				if prevValue == nil || value != *prevValue {
-					result <- value
-					prevValue = &value
-				}
-			}
+		for _, value := range *r.cachedValues {
+			ch <- value
 		}
 	}()
 
-	return result
+	return ch
 }

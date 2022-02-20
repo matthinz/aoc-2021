@@ -2,6 +2,7 @@ package d24
 
 import (
 	"log"
+	"sort"
 	"testing"
 )
 
@@ -122,7 +123,7 @@ func TestMultiplyExpressionRange(t *testing.T) {
 			name:     "TwoInputs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewInputExpression(1),
-			expected: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 2, 4, 6, 8, 10, 12, 14, 16, 18, 3, 6, 9, 12, 15, 21, 24, 27, 4, 8, 12, 16, 20, 24, 28, 32, 36, 5, 10, 15, 20, 25, 30, 35, 40, 45, 6, 12, 18, 24, 30, 36, 42, 48, 54, 7, 14, 21, 28, 35, 42, 49, 56, 63, 8, 16, 24, 32, 40, 48, 56, 64, 72, 9, 18, 27, 36, 45, 54, 63, 81},
+			expected: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 24, 25, 27, 28, 30, 32, 35, 36, 40, 42, 45, 48, 49, 54, 56, 63, 64, 72, 81},
 		},
 		{
 			name:     "TwoLiterals",
@@ -146,6 +147,8 @@ func TestMultiplyExpressionRange(t *testing.T) {
 			if len(actual) != len(test.expected) {
 				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
 			}
+
+			sort.Ints(actual)
 
 			for i := range test.expected {
 				if actual[i] != test.expected[i] {

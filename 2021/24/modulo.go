@@ -33,8 +33,9 @@ type ModuloExpression struct {
 }
 
 type moduloRange struct {
-	lhs Range
-	rhs Range
+	lhs          Range
+	rhs          Range
+	cachedValues *[]int
 }
 
 func NewModuloExpression(lhs, rhs Expression) Expression {
@@ -87,13 +88,18 @@ func (e *ModuloExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 }
 
 func (e *ModuloExpression) Range() Range {
-	lhsRange := e.Lhs().Range()
-	rhsRange := e.Rhs().Range()
+	if e.cachedRange == nil {
 
-	return &moduloRange{
-		lhs: lhsRange,
-		rhs: rhsRange,
+		lhsRange := e.Lhs().Range()
+		rhsRange := e.Rhs().Range()
+
+		e.cachedRange = &moduloRange{
+			lhs: lhsRange,
+			rhs: rhsRange,
+		}
 	}
+
+	return e.cachedRange
 }
 
 func (e *ModuloExpression) Simplify() Expression {
@@ -149,21 +155,31 @@ func (r *moduloRange) Values() chan int {
 	go func() {
 		defer close(ch)
 
-		for rhsValue := range r.rhs.Values() {
-			values := make(map[int]int)
+		if r.cachedValues == nil {
 
-			for lhsValue := range r.lhs.Values() {
-				value := lhsValue % rhsValue
-				values[value]++
+			uniqueValues := make([]int, 0)
 
-				if values[0] >= 2 {
-					break
+			for rhsValue := range r.rhs.Values() {
+				values := make(map[int]int)
+
+				for lhsValue := range r.lhs.Values() {
+					value := lhsValue % rhsValue
+					values[value]++
+
+					if values[0] >= 2 {
+						break
+					}
+				}
+
+				for value := range values {
+					uniqueValues = append(uniqueValues, value)
 				}
 			}
+			r.cachedValues = &uniqueValues
+		}
 
-			for value := range values {
-				ch <- value
-			}
+		for _, value := range *r.cachedValues {
+			ch <- value
 		}
 
 	}()
