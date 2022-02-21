@@ -137,6 +137,12 @@ func TestMultiplyExpressionRange(t *testing.T) {
 			rhs:      NewLiteralExpression(3),
 			expected: []int{3, 6, 9, 12, 15, 18, 21, 24, 27},
 		},
+		{
+			name:     "InputAndEquals",
+			lhs:      NewInputExpression(0),
+			rhs:      NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
+			expected: []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+		},
 	}
 
 	for _, test := range tests {

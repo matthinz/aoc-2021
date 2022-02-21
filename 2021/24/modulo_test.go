@@ -179,6 +179,18 @@ func TestModuloExpressionRange(t *testing.T) {
 			rhs:      NewLiteralExpression(4),
 			expected: []int{-2, 0},
 		},
+		{
+			name:     "LargeLhsSmallRhs",
+			lhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(100000)),
+			rhs:      NewLiteralExpression(26),
+			expected: []int{2, 4, 6, 8, 10, 12, 16, 20, 24},
+		},
+		{
+			name:     "RhsEqualToLhsStep",
+			lhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(5)),
+			rhs:      NewLiteralExpression(5),
+			expected: []int{0},
+		},
 	}
 
 	for _, test := range tests {

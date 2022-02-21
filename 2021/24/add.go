@@ -107,20 +107,17 @@ func (e *AddExpression) Simplify() Expression {
 	lhsRange := lhs.Range()
 	rhsRange := rhs.Range()
 
-	// if both ranges are single numbers we are adding two literals
-	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
-	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
+	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+
+	lhsIsSingleValue := lhsIsContinuous && lhsContinuous.min == lhsContinuous.max
+	rhsIsSingleValue := rhsIsContinuous && rhsContinuous.min == rhsContinuous.max
 
 	if lhsIsSingleValue && rhsIsSingleValue {
-		return NewLiteralExpression(lhsSingleValue + rhsSingleValue)
-	}
-
-	// if either range is zero, use the other
-	if lhsIsSingleValue && lhsSingleValue == 0 {
+		return NewLiteralExpression(lhsContinuous.min + rhsContinuous.min)
+	} else if lhsIsSingleValue && lhsContinuous.min == 0 {
 		return rhs
-	}
-
-	if rhsIsSingleValue && rhsSingleValue == 0 {
+	} else if rhsIsSingleValue && rhsContinuous.min == 0 {
 		return lhs
 	}
 

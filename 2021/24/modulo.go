@@ -93,9 +93,25 @@ func (e *ModuloExpression) Range() Range {
 		lhsRange := e.Lhs().Range()
 		rhsRange := e.Rhs().Range()
 
-		e.cachedRange = &moduloRange{
-			lhs: lhsRange,
-			rhs: rhsRange,
+		lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
+		rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+
+		if lhsIsContinuous && rhsIsContinuous {
+			if rhsContinuous.min == rhsContinuous.max {
+				if lhsContinuous.step == rhsContinuous.min {
+					// When the step of the lhs range == value of rhs range, then
+					// then the lhs range is reduced to a single value.
+					value := lhsContinuous.min % rhsContinuous.min
+					e.cachedRange = newContinuousRange(value, value, 1)
+				}
+			}
+		}
+
+		if e.cachedRange == nil {
+			e.cachedRange = &moduloRange{
+				lhs: lhsRange,
+				rhs: rhsRange,
+			}
 		}
 	}
 

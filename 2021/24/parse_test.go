@@ -9,6 +9,14 @@ import (
 //go:embed input
 var realInput string
 
+func TestParseFirstLinesOfRealInput(t *testing.T) {
+	t.Skip()
+	const LineCount = 170
+	lines := strings.Split(realInput, "\n")
+	first := strings.Join(lines[0:LineCount], "\n")
+	parseInput(strings.NewReader(first))
+}
+
 func TestParseRealInputFindsAllInputsInZ(t *testing.T) {
 	t.Skip()
 	r := parseInput(strings.NewReader(realInput))

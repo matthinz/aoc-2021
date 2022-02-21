@@ -51,7 +51,7 @@ func (e *binaryExpression) Rhs() Expression {
 }
 
 func (e *binaryExpression) String() string {
-	return fmt.Sprintf("%s %s %s", e.lhs.String(), string(e.operator), e.rhs.String())
+	return fmt.Sprintf("(%s %s %s)", e.lhs.String(), string(e.operator), e.rhs.String())
 }
 
 func PreferFirstSetOfInputs(a, b map[int]int) (map[int]int, error) {
