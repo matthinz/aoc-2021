@@ -107,9 +107,39 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 
 func (e *DivideExpression) Range() Range {
 	if e.cachedRange == nil {
-		e.cachedRange = &divisionRange{
-			lhs: e.Lhs().Range(),
-			rhs: e.Rhs().Range(),
+
+		lhsRange := e.lhs.Range()
+		rhsRange := e.rhs.Range()
+
+		lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
+		rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+
+		if lhsIsContinuous && rhsIsContinuous {
+
+			if rhsContinuous.min == rhsContinuous.max {
+
+				rhsIsFactorOfLhsStep := (lhsContinuous.step/rhsContinuous.min)*rhsContinuous.min == lhsContinuous.step
+
+				if rhsIsFactorOfLhsStep {
+					// If lhs is continuous and rhs is a factor of the step of lhs,
+					// then we can cleanly divide everything
+					e.cachedRange = newContinuousRange(
+						lhsContinuous.min/rhsContinuous.min,
+						lhsContinuous.max/rhsContinuous.max,
+						lhsContinuous.step/rhsContinuous.min,
+					)
+				}
+
+			}
+
+		}
+
+		if e.cachedRange == nil {
+
+			e.cachedRange = &divisionRange{
+				lhs: e.Lhs().Range(),
+				rhs: e.Rhs().Range(),
+			}
 		}
 	}
 
@@ -169,7 +199,7 @@ func (r *divisionRange) Split(around Range) (Range, Range, Range) {
 }
 
 func (r *divisionRange) String() string {
-	return fmt.Sprintf("%s + %s", r.lhs.String(), r.rhs.String())
+	return fmt.Sprintf("(%s / %s)", r.lhs.String(), r.rhs.String())
 }
 
 func (r *divisionRange) Values() func() (int, bool) {

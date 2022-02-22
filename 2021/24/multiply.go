@@ -102,6 +102,24 @@ func (e *MultiplyExpression) Range() Range {
 				lhsContinuous.max*rhsContinuous.max,
 				rhsContinuous.min,
 			)
+		} else if rhsContinuous.min == 0 && rhsContinuous.max == 1 {
+			if lhsContinuous.Includes(0) {
+				e.cachedRange = lhsContinuous
+			} else {
+				e.cachedRange = newCompoundRange(
+					lhsContinuous,
+					newContinuousRange(0, 0, 1),
+				)
+			}
+		} else if lhsContinuous.min == 0 && lhsContinuous.max == 1 {
+			if rhsContinuous.Includes(0) {
+				e.cachedRange = rhsContinuous
+			} else {
+				e.cachedRange = newCompoundRange(
+					rhsContinuous,
+					newContinuousRange(0, 0, 1),
+				)
+			}
 		}
 	}
 

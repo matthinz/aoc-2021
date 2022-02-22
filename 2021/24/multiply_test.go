@@ -112,10 +112,11 @@ func TestMultiplyExpressionFindInputs(t *testing.T) {
 
 func TestMultiplyExpressionRange(t *testing.T) {
 	type rangeTest struct {
-		name     string
-		lhs      Expression
-		rhs      Expression
-		expected []int
+		name             string
+		lhs              Expression
+		rhs              Expression
+		expected         []int
+		expectedAsString string
 	}
 
 	tests := []rangeTest{
@@ -138,27 +139,40 @@ func TestMultiplyExpressionRange(t *testing.T) {
 			expected: []int{3, 6, 9, 12, 15, 18, 21, 24, 27},
 		},
 		{
-			name:     "InputAndEquals",
-			lhs:      NewInputExpression(0),
-			rhs:      NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
-			expected: []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			name:             "InputAndEquals",
+			lhs:              NewInputExpression(0),
+			rhs:              NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
+			expectedAsString: "0..9",
+		},
+		{
+			name:             "AddedInputAndEquals",
+			lhs:              NewAddExpression(NewInputExpression(0), NewLiteralExpression(8)),
+			rhs:              NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
+			expectedAsString: "0,9..17",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewMultiplyExpression(test.lhs, test.rhs)
-			actual := GetAllValuesOfRange(expr.Range())
 
-			if len(actual) != len(test.expected) {
-				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
-			}
+			if test.expectedAsString != "" {
+				actual := expr.Range().String()
+				if actual != test.expectedAsString {
+					t.Fatalf("%s: expected '%s', but got '%s'", expr.String(), test.expectedAsString, actual)
+				}
+			} else {
+				actual := GetAllValuesOfRange(expr.Range())
 
-			sort.Ints(actual)
-
-			for i := range test.expected {
-				if actual[i] != test.expected[i] {
+				if len(actual) != len(test.expected) {
 					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+				}
+
+				sort.Ints(actual)
+				for i := range test.expected {
+					if actual[i] != test.expected[i] {
+						t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+					}
 				}
 			}
 		})

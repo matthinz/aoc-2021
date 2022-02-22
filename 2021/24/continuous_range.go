@@ -22,7 +22,15 @@ func newContinuousRange(min, max, step int) *continuousRange {
 }
 
 func (r *continuousRange) Includes(value int) bool {
-	return value >= r.min && value <= r.max
+	insideBounds := value >= r.min && value <= r.max
+	if !insideBounds {
+		return false
+	}
+
+	// But it also needs to be on the step
+	isOnStep := (value-r.min)%r.step == 0
+	return isOnStep
+
 }
 
 func (r *continuousRange) Split(around Range) (Range, Range, Range) {

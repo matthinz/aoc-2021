@@ -3,17 +3,10 @@ package d24
 import (
 	"fmt"
 	"log"
-	"strconv"
-	"strings"
 )
 
 type EqualsExpression struct {
 	binaryExpression
-}
-
-type equalsRange struct {
-	lhs Range
-	rhs Range
 }
 
 func NewEqualsExpression(lhs, rhs Expression) Expression {
@@ -83,13 +76,7 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 }
 
 func (e *EqualsExpression) Range() Range {
-	if e.cachedRange == nil {
-		e.cachedRange = &equalsRange{
-			lhs: e.Lhs().Range(),
-			rhs: e.Rhs().Range(),
-		}
-	}
-	return e.cachedRange
+	return newContinuousRange(0, 1, 1)
 }
 
 func (e *EqualsExpression) Simplify() Expression {
@@ -122,50 +109,4 @@ func (e *EqualsExpression) Simplify() Expression {
 
 func (e *EqualsExpression) String() string {
 	return fmt.Sprintf("(%s == %s ? 1 : 0)", e.lhs.String(), e.rhs.String())
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// equalsRange
-
-func (r *equalsRange) Includes(value int) bool {
-	if value != 0 && value != 1 {
-		return false
-	}
-
-	nextValue := r.Values()
-	for v, ok := nextValue(); ok; v, ok = nextValue() {
-		if v == value {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (r *equalsRange) Split(around Range) (Range, Range, Range) {
-	return newSplitRanges(r, around)
-}
-
-func (r *equalsRange) String() string {
-	var values []string
-	nextValue := r.Values()
-	for value, ok := nextValue(); ok; value, ok = nextValue() {
-		values = append(values, strconv.FormatInt(int64(value), 10))
-	}
-
-	return fmt.Sprintf("(%s)", strings.Join(values, ","))
-}
-
-func (r *equalsRange) Values() func() (int, bool) {
-	nextValue := 0
-	return func() (int, bool) {
-
-		if nextValue > 1 {
-			return 0, false
-		}
-
-		value := nextValue
-		nextValue++
-		return value, true
-	}
 }
