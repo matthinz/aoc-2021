@@ -29,7 +29,9 @@ func newSplitRanges(parent Range, around Range) (Range, Range, Range) {
 }
 
 func (r *splitRange) Includes(value int) bool {
-	for v := range r.Values() {
+	// TODO: We can probably do this smarter
+	nextValue := r.Values()
+	for v, ok := nextValue(); ok; v, ok = nextValue() {
 		if v == value {
 			return true
 		}
@@ -54,38 +56,40 @@ func (r *splitRange) String() string {
 	}
 }
 
-func (r *splitRange) Values() chan int {
-	ch := make(chan int)
-	go func() {
-		defer close(ch)
+func (r *splitRange) Values() func() (int, bool) {
+	aroundMin := math.MaxInt
+	aroundMax := math.MinInt
 
-		aroundMin := math.MaxInt
-		aroundMax := math.MinInt
-
-		aroundContinuous, aroundIsContinuous := r.around.(*continuousRange)
-		if aroundIsContinuous {
-			aroundMin = aroundContinuous.min
-			aroundMax = aroundContinuous.max
-		} else {
-			for aroundValue := range r.around.Values() {
-				if aroundValue < aroundMin {
-					aroundMin = aroundValue
-				}
-				if aroundValue > aroundMax {
-					aroundMax = aroundValue
-				}
+	aroundContinuous, aroundIsContinuous := r.around.(*continuousRange)
+	if aroundIsContinuous {
+		aroundMin = aroundContinuous.min
+		aroundMax = aroundContinuous.max
+	} else {
+		nextAroundValue := r.around.Values()
+		for aroundValue, ok := nextAroundValue(); ok; aroundValue, ok = nextAroundValue() {
+			if aroundValue < aroundMin {
+				aroundMin = aroundValue
+			}
+			if aroundValue > aroundMax {
+				aroundMax = aroundValue
 			}
 		}
+	}
 
-		for value := range r.parent.Values() {
+	nextValue := r.parent.Values()
+
+	return func() (int, bool) {
+
+		for value, ok := nextValue(); ok; value, ok = nextValue() {
 			if r.rel == beforeSplit && value < aroundMin {
-				ch <- value
+				return value, true
 			} else if r.rel == atSplit && value >= aroundMin && value <= aroundMax {
-				ch <- value
+				return value, true
 			} else if r.rel == afterSplit && value > aroundMax {
-				ch <- value
+				return value, true
 			}
 		}
-	}()
-	return ch
+
+		return 0, false
+	}
 }

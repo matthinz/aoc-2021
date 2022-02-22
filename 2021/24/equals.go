@@ -58,7 +58,9 @@ func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 
 				if target == 0 {
 					// We want any members of rhsRange *not equal to* lhsValue
-					for rhsValue := range rhsRange.Values() {
+					nextRhsValue := rhsRange.Values()
+
+					for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
 						if rhsValue != lhsValue {
 							ch <- rhsValue
 						}
@@ -130,8 +132,8 @@ func (r *equalsRange) Includes(value int) bool {
 		return false
 	}
 
-	values := r.Values()
-	for v := range values {
+	nextValue := r.Values()
+	for v, ok := nextValue(); ok; v, ok = nextValue() {
 		if v == value {
 			return true
 		}
@@ -146,21 +148,24 @@ func (r *equalsRange) Split(around Range) (Range, Range, Range) {
 
 func (r *equalsRange) String() string {
 	var values []string
-	for value := range r.Values() {
+	nextValue := r.Values()
+	for value, ok := nextValue(); ok; value, ok = nextValue() {
 		values = append(values, strconv.FormatInt(int64(value), 10))
 	}
 
 	return fmt.Sprintf("(%s)", strings.Join(values, ","))
 }
 
-func (r *equalsRange) Values() chan int {
-	ch := make(chan int)
-	go func() {
-		defer close(ch)
-		// TODO: The actual values
-		ch <- 0
-		ch <- 1
+func (r *equalsRange) Values() func() (int, bool) {
+	nextValue := 0
+	return func() (int, bool) {
 
-	}()
-	return ch
+		if nextValue > 1 {
+			return 0, false
+		}
+
+		value := nextValue
+		nextValue++
+		return value, true
+	}
 }

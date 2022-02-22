@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"reflect"
 )
 
 const ActuallyLog = false
@@ -31,9 +32,13 @@ func findInputsForBinaryExpression(
 
 	var best map[int]int
 
+	t := reflect.TypeOf(lhsRange).Elem()
+	l.Printf("lhsRange: %s", t.Name())
+
 	// for each value in left side's range, look for a corresponding value in the
 	// right side's range and figure out the inputs needed to get them both to go there
-	for lhsValue := range lhsRange.Values() {
+	nextLhsValue := lhsRange.Values()
+	for lhsValue, ok := nextLhsValue(); ok; lhsValue, ok = nextLhsValue() {
 		l.Printf("lhsValue: %d", lhsValue)
 
 		potentialRhsValues, err := getRhsValues(lhsValue, rhsRange)

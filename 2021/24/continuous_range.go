@@ -46,16 +46,17 @@ func (r *continuousRange) String() string {
 	}
 }
 
-func (r *continuousRange) Values() chan int {
-	ch := make(chan int)
-	go func() {
-		defer close(ch)
-		for value := r.min; value <= r.max; value += r.step {
-			ch <- value
-		}
-	}()
+func (r *continuousRange) Values() func() (int, bool) {
+	pos := 0
 
-	return ch
+	return func() (int, bool) {
+		if pos > r.max-r.min {
+			return 0, false
+		}
+		value := r.min + pos
+		pos += r.step
+		return value, true
+	}
 }
 
 func splitContinuousWithContinuous(r *continuousRange, around *continuousRange) (Range, Range, Range) {

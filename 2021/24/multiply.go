@@ -62,7 +62,8 @@ func (e *MultiplyExpression) FindInputs(target int, d InputDecider, l *log.Logge
 					return
 				}
 
-				for rhsValue := range rhsRange.Values() {
+				nextRhsValue := rhsRange.Values()
+				for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
 					if lhsValue*rhsValue == target {
 						ch <- rhsValue
 					}
@@ -161,8 +162,9 @@ func (e *MultiplyExpression) Simplify() Expression {
 // multiplyRange
 
 func (r *multiplyRange) Includes(value int) bool {
-	for i := range r.Values() {
-		if i == value {
+	nextValue := r.Values()
+	for v, ok := nextValue(); ok; v, ok = nextValue() {
+		if v == value {
 			return true
 		}
 	}
@@ -177,12 +179,11 @@ func (r *multiplyRange) String() string {
 	return fmt.Sprintf("(%s * %s)", r.lhs.String(), r.rhs.String())
 }
 
-func (r *multiplyRange) Values() chan int {
-	ch := make(chan int)
+func (r *multiplyRange) Values() func() (int, bool) {
 
-	go func() {
-		defer close(ch)
+	pos := 0
 
+	return func() (int, bool) {
 		if r.cachedValues == nil {
 			r.cachedValues = buildBinaryExpressionRangeValues(
 				r.lhs,
@@ -191,10 +192,12 @@ func (r *multiplyRange) Values() chan int {
 			)
 		}
 
-		for _, value := range *r.cachedValues {
-			ch <- value
+		if pos >= len(*r.cachedValues) {
+			return 0, false
 		}
-	}()
 
-	return ch
+		value := (*r.cachedValues)[pos]
+		pos++
+		return value, true
+	}
 }

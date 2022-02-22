@@ -72,8 +72,8 @@ func (e *ModuloExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 			go func() {
 				defer close(result)
 
-				rhsValues := rhsRange.Values()
-				for rhsValue := range rhsValues {
+				nextRhsValue := rhsRange.Values()
+				for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
 					if lhsValue%rhsValue == target {
 						result <- rhsValue
 					}
@@ -153,7 +153,8 @@ func (e *ModuloExpression) Simplify() Expression {
 // moduloRange
 
 func (r *moduloRange) Includes(value int) bool {
-	for v := range r.Values() {
+	nextValue := r.Values()
+	for v, ok := nextValue(); ok; v, ok = nextValue() {
 		if v == value {
 			return true
 		}
@@ -165,20 +166,22 @@ func (r *moduloRange) Split(around Range) (Range, Range, Range) {
 	return newSplitRanges(r, around)
 }
 
-func (r *moduloRange) Values() chan int {
-	ch := make(chan int)
+func (r *moduloRange) Values() func() (int, bool) {
 
-	go func() {
-		defer close(ch)
+	pos := 0
+
+	return func() (int, bool) {
 
 		if r.cachedValues == nil {
 
 			uniqueValues := make([]int, 0)
 
-			for rhsValue := range r.rhs.Values() {
+			nextRhsValue := r.rhs.Values()
+			for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
 				values := make(map[int]int)
+				nextLhsValue := r.lhs.Values()
 
-				for lhsValue := range r.lhs.Values() {
+				for lhsValue, ok := nextLhsValue(); ok; lhsValue, ok = nextLhsValue() {
 					value := lhsValue % rhsValue
 					values[value]++
 
@@ -194,19 +197,22 @@ func (r *moduloRange) Values() chan int {
 			r.cachedValues = &uniqueValues
 		}
 
-		for _, value := range *r.cachedValues {
-			ch <- value
+		if pos >= len(*r.cachedValues) {
+			return 0, false
 		}
 
-	}()
-
-	return ch
+		value := (*r.cachedValues)[pos]
+		pos++
+		return value, true
+	}
 }
 
 func (r *moduloRange) String() string {
 	const maxLength = 10
 	values := make(map[int]bool)
-	for value := range r.Values() {
+
+	nextValue := r.Values()
+	for value, ok := nextValue(); ok; value, ok = nextValue() {
 		values[value] = true
 		if len(values) > maxLength {
 			return fmt.Sprintf("(%s %% %s)", r.lhs.String(), r.rhs.String())

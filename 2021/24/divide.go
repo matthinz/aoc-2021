@@ -53,12 +53,12 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 					// can. We're doing integer division, so a large enough divisor *could* get us to zero
 					// e.g if we're doing 6 / x = 0, any x > 6 will result in 0
 
-					potentialDivisors := divisorRange.Values()
+					nextPotentialDivisor := divisorRange.Values()
 
 					if dividend == 0 {
 						// It does not matter what the divisor is -- any non-zero value
 						// in divisorRange will work
-						for divisor := range potentialDivisors {
+						for divisor, ok := nextPotentialDivisor(); ok; divisor, ok = nextPotentialDivisor() {
 							if divisor != 0 {
 								ch <- divisor
 							}
@@ -67,7 +67,7 @@ func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger)
 					}
 
 					// Any number *larger* than dividend will result in 0
-					for divisor := range potentialDivisors {
+					for divisor, ok := nextPotentialDivisor(); ok; divisor, ok = nextPotentialDivisor() {
 						if divisor == 0 {
 							continue
 						}
@@ -154,8 +154,10 @@ func (e *DivideExpression) Simplify() Expression {
 // divisionRange
 
 func (r *divisionRange) Includes(value int) bool {
-	for i := range r.Values() {
-		if i == value {
+	next := r.Values()
+
+	for v, ok := next(); ok; v, ok = next() {
+		if v == value {
 			return true
 		}
 	}
@@ -170,11 +172,11 @@ func (r *divisionRange) String() string {
 	return fmt.Sprintf("%s + %s", r.lhs.String(), r.rhs.String())
 }
 
-func (r *divisionRange) Values() chan int {
-	ch := make(chan int)
+func (r *divisionRange) Values() func() (int, bool) {
 
-	go func() {
-		defer close(ch)
+	pos := 0
+
+	return func() (int, bool) {
 
 		if r.cachedValues == nil {
 			r.cachedValues = buildBinaryExpressionRangeValues(
@@ -184,10 +186,12 @@ func (r *divisionRange) Values() chan int {
 			)
 		}
 
-		for _, value := range *r.cachedValues {
-			ch <- value
+		if pos >= len(*r.cachedValues) {
+			return 0, false
 		}
-	}()
 
-	return ch
+		value := (*r.cachedValues)[pos]
+		pos++
+		return value, true
+	}
 }

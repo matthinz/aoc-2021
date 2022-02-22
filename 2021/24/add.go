@@ -131,8 +131,8 @@ func (e *AddExpression) Simplify() Expression {
 // sumRange
 
 func (r *sumRange) Includes(value int) bool {
-	values := r.Values()
-	for v := range values {
+	next := r.Values()
+	for v, ok := next(); ok; v, ok = next() {
 		if v == value {
 			return true
 		}
@@ -148,12 +148,11 @@ func (r *sumRange) String() string {
 	return fmt.Sprintf("(%s + %s)", r.lhs.String(), r.rhs.String())
 }
 
-func (r *sumRange) Values() chan int {
-	ch := make(chan int)
+func (r *sumRange) Values() func() (int, bool) {
 
-	go func() {
-		defer close(ch)
+	pos := 0
 
+	return func() (int, bool) {
 		if r.cachedValues == nil {
 			r.cachedValues = buildBinaryExpressionRangeValues(
 				r.lhs,
@@ -162,10 +161,13 @@ func (r *sumRange) Values() chan int {
 			)
 		}
 
-		for _, value := range *r.cachedValues {
-			ch <- value
+		if pos >= len(*r.cachedValues) {
+			return 0, false
 		}
-	}()
 
-	return ch
+		value := (*r.cachedValues)[pos]
+		pos++
+
+		return value, true
+	}
 }

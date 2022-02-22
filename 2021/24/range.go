@@ -11,15 +11,18 @@ type Range interface {
 
 	String() string
 
-	// Returns a channel that outputs the values in this range.
-	// Order of output is not guaranteed, and the output may contain duplicates.
-	Values() chan int
+	// Returns a function that, when executed, returns the next value in the
+	// range along with a boolean indicating whether the call succeeded.
+	Values() func() (int, bool)
 }
 
 // Reads all values in the given range into a slice and returns it.
 func GetAllValuesOfRange(r Range) []int {
 	result := make([]int, 0)
-	for value := range r.Values() {
+
+	nextValue := r.Values()
+
+	for value, ok := nextValue(); ok; value, ok = nextValue() {
 		result = append(result, value)
 	}
 	return result
@@ -35,12 +38,12 @@ func GetSingleValueOfRange(r Range) (int, bool) {
 		return 0, false
 	}
 
-	values := r.Values()
+	nextValue := r.Values()
 
 	var index int
 	var result int
 
-	for value := range values {
+	for value, ok := nextValue(); ok; value, ok = nextValue() {
 		if index > 0 {
 			return 0, false
 		}
@@ -54,12 +57,12 @@ func GetSingleValueOfRange(r Range) (int, bool) {
 // Returns true if two ranges contain the exact same elements.
 func RangesAreEqual(a, b Range) bool {
 
-	aValues := a.Values()
-	bValues := b.Values()
+	nextA := a.Values()
+	nextB := b.Values()
 
 	for {
-		aValue, aOk := <-aValues
-		bValue, bOk := <-bValues
+		aValue, aOk := nextA()
+		bValue, bOk := nextB()
 
 		if !aOk && !bOk {
 			return true
@@ -85,14 +88,14 @@ func RangesEqual(a, b Range) bool {
 	const SeenInA = 1
 	const SeenInB = 2
 
-	aValues := a.Values()
-	bValues := b.Values()
+	nextA := a.Values()
+	nextB := b.Values()
 
 	seen := make(map[int]uint8)
 
 	for {
-		aValue, aOk := <-aValues
-		bValue, bOk := <-bValues
+		aValue, aOk := nextA()
+		bValue, bOk := nextB()
 
 		if !(aOk && bOk) {
 			break
@@ -120,10 +123,10 @@ func RangesEqual(a, b Range) bool {
 
 // Returns true if a and b have _any_ values in common
 func RangesIntersect(a, b Range) bool {
-	aValues := a.Values()
-	for aValue := range aValues {
-		bValues := b.Values()
-		for bValue := range bValues {
+	nextA := a.Values()
+	for aValue, ok := nextA(); ok; aValue, ok = nextA() {
+		nextB := b.Values()
+		for bValue, ok := nextB(); ok; bValue, ok = nextB() {
 			if aValue == bValue {
 				return true
 			}
@@ -139,8 +142,11 @@ func buildBinaryExpressionRangeValues(
 ) *[]int {
 	values := make(map[int]int)
 
-	for lhsValue := range lhs.Values() {
-		for rhsValue := range rhs.Values() {
+	nextLhs := lhs.Values()
+
+	for lhsValue, ok := nextLhs(); ok; lhsValue, ok = nextLhs() {
+		nextRhs := rhs.Values()
+		for rhsValue, ok := nextRhs(); ok; rhsValue, ok = nextRhs() {
 			value := op(lhsValue, rhsValue)
 			values[value]++
 		}
