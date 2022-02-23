@@ -157,27 +157,133 @@ func (e *DivideExpression) Simplify() Expression {
 	lhsRange := lhs.Range()
 	rhsRange := rhs.Range()
 
-	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
-	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
+	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
 
-	if lhsIsSingleValue && rhsIsSingleValue {
-		return NewLiteralExpression(lhsSingleValue / rhsSingleValue)
-	}
-
-	// if left value is zero, this will eval to zero
-	if lhsIsSingleValue && lhsSingleValue == 0 {
+	if lhsIsContinuous && lhsContinuous.min == 0 && lhsContinuous.max == 0 {
 		return NewLiteralExpression(0)
 	}
 
-	// if right value is 1, this will eval to lhs
-	if rhsIsSingleValue && rhsSingleValue == 1 {
-		return lhs
+	if lhsIsContinuous && rhsIsContinuous {
+		if lhsContinuous.max < rhsContinuous.min {
+			// this will _always_ be zero
+			return NewLiteralExpression(0)
+		}
+	}
+
+	if rhsIsContinuous && rhsContinuous.min == rhsContinuous.max {
+		expr := divideExpressionByInt(lhs, rhsContinuous.min)
+		if expr != nil {
+			return expr.Simplify()
+		}
 	}
 
 	result := NewDivideExpression(lhs, rhs)
 	result.(*DivideExpression).isSimplified = true
 
 	return result
+}
+
+// Attempts to divide an expression by an integer value, returning
+// a new Expression if successful. If the operation is not possible, returns
+// nil.
+func divideExpressionByInt(dividend Expression, divisor int) Expression {
+	if divisor == 0 {
+		return nil
+	}
+
+	if divisor == 1 {
+		return dividend
+	}
+
+	r := dividend.Range()
+
+	bounds := getBounds(r)
+	if bounds != nil {
+		// If the range of our dividend is completely less than the divisor,
+		// we can just zero the whole thing out
+		if bounds.Max() < divisor {
+			return NewLiteralExpression(0)
+		}
+	}
+
+	if literal, isLiteral := dividend.(*LiteralExpression); isLiteral {
+		return divideLiteralByInt(*literal, divisor)
+	}
+
+	input, isInput := dividend.(*InputExpression)
+	if isInput {
+		expr := NewDivideExpression(input, NewLiteralExpression(divisor))
+		expr.(*DivideExpression).isSimplified = true
+		return expr
+	}
+
+	if sum, isSum := dividend.(*AddExpression); isSum {
+		lhs := divideExpressionByInt(sum.lhs, divisor)
+		rhs := divideExpressionByInt(sum.rhs, divisor)
+		if lhs != nil && rhs != nil {
+			fmt.Printf("lhs: %s, rhs: %s\n", lhs.String(), rhs.String())
+			return NewAddExpression(lhs, rhs)
+		}
+	}
+
+	if multiply, isMultiply := dividend.(*MultiplyExpression); isMultiply {
+		return divideMultiplyByInt(*multiply, divisor)
+	}
+
+	return nil
+}
+
+func divideLiteralByInt(dividend LiteralExpression, divisor int) Expression {
+	// We avoid doing things that could lose precision
+	isSafe := dividend.value%divisor == 0
+	if isSafe {
+		return NewLiteralExpression(dividend.value / divisor)
+	} else {
+		return nil
+	}
+}
+
+func divideMultiplyByInt(dividend MultiplyExpression, divisor int) Expression {
+
+	lhsLiteral, lhsIsLiteral := dividend.lhs.(*LiteralExpression)
+	rhsLiteral, rhsIsLiteral := dividend.rhs.(*LiteralExpression)
+
+	if lhsIsLiteral {
+		lhs := divideExpressionByInt(lhsLiteral, divisor)
+		if lhs != nil {
+			return NewMultiplyExpression(lhs, dividend.rhs)
+		}
+	}
+
+	if rhsIsLiteral {
+		rhs := divideExpressionByInt(rhsLiteral, divisor)
+		if rhs != nil {
+			return NewMultiplyExpression(dividend.lhs, rhs)
+		}
+	}
+
+	// If either side of the dividend is itself a MultiplyExpression, attempt
+	// to find a subexpression we can cleanly apply the divisor to
+	if lhsMultiply, lhsIsMultiply := dividend.lhs.(*MultiplyExpression); lhsIsMultiply {
+		if newLhs := divideMultiplyByInt(*lhsMultiply, divisor); newLhs != nil {
+			return NewMultiplyExpression(
+				newLhs,
+				dividend.Rhs(),
+			)
+		}
+	}
+
+	if rhsMultiply, rhsIsMultiply := dividend.rhs.(*MultiplyExpression); rhsIsMultiply {
+		if newRhs := divideMultiplyByInt(*rhsMultiply, divisor); newRhs != nil {
+			return NewMultiplyExpression(
+				dividend.Lhs(),
+				newRhs,
+			)
+		}
+	}
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -199,7 +305,7 @@ func (r *divisionRange) Split(around Range) (Range, Range, Range) {
 }
 
 func (r *divisionRange) String() string {
-	return fmt.Sprintf("(%s / %s)", r.lhs.String(), r.rhs.String())
+	return fmt.Sprintf("<%s / %s>", r.lhs.String(), r.rhs.String())
 }
 
 func (r *divisionRange) Values() func() (int, bool) {

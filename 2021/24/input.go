@@ -13,7 +13,7 @@ const MinInputValue = 1
 
 const MaxInputValue = 9
 
-var inputRange = continuousRange{min: MinInputValue, max: MaxInputValue, step: 1}
+var inputRange = newContinuousRange(MinInputValue, MaxInputValue, 1)
 
 func NewInputExpression(index int) Expression {
 	return &InputExpression{index}
@@ -50,7 +50,7 @@ func (e *InputExpression) Min() int {
 }
 
 func (e *InputExpression) Range() Range {
-	return &inputRange
+	return inputRange
 }
 
 func (e *InputExpression) Simplify() Expression {

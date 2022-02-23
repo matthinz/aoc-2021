@@ -73,20 +73,47 @@ func (e *AddExpression) Range() Range {
 	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
 
 	if lhsIsContinuous && rhsIsContinuous {
-		if lhsContinuous.step == 1 {
-			e.cachedRange = &continuousRange{
-				min:  lhsContinuous.min + rhsContinuous.min,
-				max:  lhsContinuous.max + rhsContinuous.max,
-				step: rhsContinuous.step,
-			}
-		} else if rhsContinuous.step == 1 {
-			e.cachedRange = &continuousRange{
-				min:  lhsContinuous.min + rhsContinuous.min,
-				max:  lhsContinuous.max + rhsContinuous.max,
-				step: lhsContinuous.step,
+
+		// When both steps are 1, we are keeping a continuous range
+		if lhsContinuous.step == 1 && rhsContinuous.step == 1 {
+			e.cachedRange = newContinuousRange(
+				lhsContinuous.min+rhsContinuous.min,
+				lhsContinuous.max+rhsContinuous.max,
+				rhsContinuous.step,
+			)
+		}
+
+		// If either is a single value, then that just moves the other
+		if lhsContinuous.min == lhsContinuous.max {
+			e.cachedRange = newContinuousRange(
+				rhsContinuous.min+lhsContinuous.min,
+				rhsContinuous.max+lhsContinuous.min,
+				rhsContinuous.step,
+			)
+		} else if rhsContinuous.min == rhsContinuous.max {
+			e.cachedRange = newContinuousRange(
+				lhsContinuous.min+rhsContinuous.min,
+				lhsContinuous.max+rhsContinuous.min,
+				lhsContinuous.step,
+			)
+		}
+
+		// If both are using the same step AND they're aligned (a value on either would appear on the other
+		// when not considering min/max), then we can just add them directly
+		if lhsContinuous.step == rhsContinuous.step {
+			aligned := (rhsContinuous.min-lhsContinuous.min)%lhsContinuous.step == 0
+			if aligned {
+				e.cachedRange = newContinuousRange(
+					lhsContinuous.min+rhsContinuous.min,
+					lhsContinuous.max+rhsContinuous.max,
+					lhsContinuous.step,
+				)
 			}
 		}
-	} else {
+
+	}
+
+	if e.cachedRange == nil {
 		e.cachedRange = &sumRange{
 			lhs: lhsRange,
 			rhs: rhsRange,
@@ -145,7 +172,7 @@ func (r *sumRange) Split(around Range) (Range, Range, Range) {
 }
 
 func (r *sumRange) String() string {
-	return fmt.Sprintf("(%s + %s)", r.lhs.String(), r.rhs.String())
+	return fmt.Sprintf("<%s + %s>", r.lhs.String(), r.rhs.String())
 }
 
 func (r *sumRange) Values() func() (int, bool) {

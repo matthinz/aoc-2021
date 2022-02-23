@@ -34,11 +34,7 @@ func (e *LiteralExpression) FindInputs(target int, d InputDecider, l *log.Logger
 }
 
 func (e *LiteralExpression) Range() Range {
-	return &continuousRange{
-		min:  e.value,
-		max:  e.value,
-		step: 1,
-	}
+	return newContinuousRange(e.value, e.value, 1)
 }
 
 func (e *LiteralExpression) Simplify() Expression {

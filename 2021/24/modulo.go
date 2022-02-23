@@ -215,7 +215,7 @@ func (r *moduloRange) String() string {
 	for value, ok := nextValue(); ok; value, ok = nextValue() {
 		values[value] = true
 		if len(values) > maxLength {
-			return fmt.Sprintf("(%s %% %s)", r.lhs.String(), r.rhs.String())
+			return fmt.Sprintf("<%s %% %s>", r.lhs.String(), r.rhs.String())
 		}
 	}
 

@@ -209,6 +209,57 @@ func TestDivideExpressionSimplify(t *testing.T) {
 			rhs:      NewLiteralExpression(1),
 			expected: NewInputExpression(0),
 		},
+		{
+			name:     "DistributeToAddition",
+			lhs:      NewAddExpression(NewInputExpression(0), NewLiteralExpression(15)),
+			rhs:      NewLiteralExpression(3),
+			expected: NewAddExpression(NewDivideExpression(NewInputExpression(0), NewLiteralExpression(3)), NewLiteralExpression(5)),
+		},
+		{
+			name:     "DistributeToAdditionAvoidsIntegerDivisionWeirdness",
+			lhs:      NewAddExpression(NewInputExpression(0), NewLiteralExpression(16)),
+			rhs:      NewLiteralExpression(3),
+			expected: NewDivideExpression(NewAddExpression(NewInputExpression(0), NewLiteralExpression(16)), NewLiteralExpression(3)),
+		},
+		{
+			name:     "LargeRhsReducesToZero",
+			lhs:      NewInputExpression(0),
+			rhs:      NewLiteralExpression(100),
+			expected: NewLiteralExpression(0),
+		},
+		{
+			name:     "LargeRhsRangeReducesToZero",
+			lhs:      NewInputExpression(0),
+			rhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
+			expected: NewLiteralExpression(0),
+		},
+		{
+			name:     "CancelElementsInMultiplication",
+			lhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
+			rhs:      NewLiteralExpression(20),
+			expected: NewInputExpression(0),
+		},
+		{
+			name:     "CancelElementsInMultiplicationAvoidsWeirdness",
+			lhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
+			rhs:      NewLiteralExpression(7),
+			expected: NewDivideExpression(NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)), NewLiteralExpression(7)),
+		},
+		{
+			name: "DistributeIntoBigGrossThing",
+			lhs: NewAddExpression(
+				NewInputExpression(0),
+				NewMultiplyExpression(
+					NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
+					NewMultiplyExpression(NewInputExpression(2), NewLiteralExpression(100)),
+				),
+			),
+			rhs: NewLiteralExpression(50),
+			expected: NewMultiplyExpression(
+				NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
+				NewMultiplyExpression(NewInputExpression(2), NewLiteralExpression(2)),
+			),
+		},
 	}
 
 	for _, test := range tests {

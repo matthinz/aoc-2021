@@ -33,6 +33,14 @@ func (r *continuousRange) Includes(value int) bool {
 
 }
 
+func (r *continuousRange) Min() int {
+	return r.min
+}
+
+func (r *continuousRange) Max() int {
+	return r.max
+}
+
 func (r *continuousRange) Split(around Range) (Range, Range, Range) {
 
 	aroundContinuous, aroundIsContinuous := around.(*continuousRange)
@@ -46,11 +54,11 @@ func (r *continuousRange) Split(around Range) (Range, Range, Range) {
 
 func (r *continuousRange) String() string {
 	if r.min == r.max {
-		return fmt.Sprintf("%d", r.min)
+		return fmt.Sprintf("<%d>", r.min)
 	} else if r.step != 1 {
-		return fmt.Sprintf("%d..%d step %d", r.min, r.max, r.step)
+		return fmt.Sprintf("<%d..%d step %d>", r.min, r.max, r.step)
 	} else {
-		return fmt.Sprintf("%d..%d", r.min, r.max)
+		return fmt.Sprintf("<%d..%d>", r.min, r.max)
 	}
 }
 

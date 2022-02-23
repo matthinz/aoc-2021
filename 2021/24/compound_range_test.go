@@ -15,25 +15,25 @@ func TestNewCompoundRangeFromContinuousRanges(t *testing.T) {
 			name:     "SameStepAdjacent",
 			a:        newContinuousRange(0, 1, 1),
 			b:        newContinuousRange(1, 9, 1),
-			expected: "0..9",
+			expected: "<0..9>",
 		},
 		{
 			name:     "SameStepIntersectLeft",
 			a:        newContinuousRange(0, 2, 1),
 			b:        newContinuousRange(1, 9, 1),
-			expected: "0..9",
+			expected: "<0..9>",
 		},
 		{
 			name:     "SameStepIntersectRight",
 			a:        newContinuousRange(8, 12, 1),
 			b:        newContinuousRange(1, 9, 1),
-			expected: "1..12",
+			expected: "<1..12>",
 		},
 		{
 			name:     "DifferentStepIntersect",
 			a:        newContinuousRange(2, 8, 2),
 			b:        newContinuousRange(3, 9, 3),
-			expected: "2..8 step 2,3..9 step 3",
+			expected: "<<2..8 step 2>,<3..9 step 3>>",
 		},
 	}
 

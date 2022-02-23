@@ -103,10 +103,11 @@ func TestAddExpressionFindInputs(t *testing.T) {
 
 func TestAddExpressionRange(t *testing.T) {
 	type rangeTest struct {
-		name     string
-		lhs      Expression
-		rhs      Expression
-		expected []int
+		name           string
+		lhs            Expression
+		rhs            Expression
+		expected       []int
+		expectedString string
 	}
 	tests := []rangeTest{
 		{
@@ -127,20 +128,40 @@ func TestAddExpressionRange(t *testing.T) {
 			rhs:      NewLiteralExpression(-8),
 			expected: []int{-7, -6, -5, -4, -3, -2, -1, 0, 1},
 		},
+		{
+			name:           "TwoValuesWithSameStepOnSharedStepInterval",
+			lhs:            NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(26)),
+			rhs:            NewMultiplyExpression(NewInputExpression(1), NewLiteralExpression(26)),
+			expectedString: "<52..468 step 26>",
+		},
+		{
+			name:           "TwoValuesWithSameStepOnDifferentStepIntervals",
+			lhs:            NewAddExpression(NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(26)), NewLiteralExpression(1)),
+			rhs:            NewMultiplyExpression(NewInputExpression(1), NewLiteralExpression(26)),
+			expectedString: "<<27..235 step 26> + <26..234 step 26>>",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewAddExpression(test.lhs, test.rhs)
-			actual := GetAllValuesOfRange(expr.Range())
 
-			if len(actual) != len(test.expected) {
-				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
-			}
+			if test.expectedString != "" {
+				actual := expr.Range().String()
+				if actual != test.expectedString {
+					t.Errorf("%s: expected %s but got %s", expr.String(), test.expectedString, actual)
+				}
+			} else {
+				actual := GetAllValuesOfRange(expr.Range())
 
-			for i := range test.expected {
-				if actual[i] != test.expected[i] {
+				if len(actual) != len(test.expected) {
 					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+				}
+
+				for i := range test.expected {
+					if actual[i] != test.expected[i] {
+						t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+					}
 				}
 			}
 		})

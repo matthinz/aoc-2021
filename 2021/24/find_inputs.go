@@ -7,7 +7,7 @@ import (
 	"reflect"
 )
 
-const ActuallyLog = false
+const ActuallyLog = true
 
 // Take a binary expression (e.g. a +, *, /, etc.) and find inputs required
 // to get it to equal <target>

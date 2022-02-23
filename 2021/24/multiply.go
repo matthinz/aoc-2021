@@ -170,6 +170,64 @@ func (e *MultiplyExpression) Simplify() Expression {
 		return lhs
 	}
 
+	// For expressions like (i0 + 4) * 5, distribute the "5" into  so we get
+	// ((5*i0) + 20)
+	lhsSum, lhsIsSum := lhs.(*AddExpression)
+	rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
+	if lhsIsSum && rhsIsLiteral {
+		// Distribute literal to sum expression
+		expr := NewAddExpression(
+			NewMultiplyExpression(lhsSum.Lhs(), rhsLiteral),
+			NewMultiplyExpression(lhsSum.Rhs(), rhsLiteral),
+		)
+		return expr.Simplify()
+	}
+
+	rhsSum, rhsIsSum := rhs.(*AddExpression)
+	lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
+	if rhsIsSum && lhsIsLiteral {
+		// Distribute literal to sum expression
+		expr := NewAddExpression(
+			NewMultiplyExpression(rhsSum.Lhs(), lhsLiteral),
+			NewMultiplyExpression(rhsSum.Rhs(), lhsLiteral),
+		)
+		return expr.Simplify()
+	}
+
+	if lhsMultiply, lhsIsMultiply := lhs.(*MultiplyExpression); lhsIsMultiply && rhsIsSingleValue {
+		if lhsLiteral, lhsIsLiteral := lhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
+			expr := NewMultiplyExpression(
+				NewLiteralExpression(lhsLiteral.value*rhsSingleValue),
+				lhsMultiply.Rhs(),
+			)
+			return expr.Simplify()
+		}
+		if rhsLiteral, rhsIsLiteral := lhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
+			expr := NewMultiplyExpression(
+				lhsMultiply.Lhs(),
+				NewLiteralExpression(rhsLiteral.value*rhsSingleValue),
+			)
+			return expr.Simplify()
+		}
+	}
+
+	if rhsMultiply, rhsIsMultiply := rhs.(*MultiplyExpression); rhsIsMultiply && lhsIsSingleValue {
+		if lhsLiteral, lhsIsLiteral := rhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
+			expr := NewMultiplyExpression(
+				NewLiteralExpression(lhsLiteral.value*lhsSingleValue),
+				rhsMultiply.Rhs(),
+			)
+			return expr.Simplify()
+		}
+		if rhsLiteral, rhsIsLiteral := rhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
+			expr := NewMultiplyExpression(
+				rhsMultiply.Lhs(),
+				NewLiteralExpression(rhsLiteral.value*lhsSingleValue),
+			)
+			return expr.Simplify()
+		}
+	}
+
 	expr := NewMultiplyExpression(lhs, rhs)
 	expr.(*MultiplyExpression).isSimplified = true
 
@@ -194,7 +252,7 @@ func (r *multiplyRange) Split(around Range) (Range, Range, Range) {
 }
 
 func (r *multiplyRange) String() string {
-	return fmt.Sprintf("(%s * %s)", r.lhs.String(), r.rhs.String())
+	return fmt.Sprintf("<%s * %s>", r.lhs.String(), r.rhs.String())
 }
 
 func (r *multiplyRange) Values() func() (int, bool) {

@@ -34,24 +34,9 @@ func GetSingleValueOfRange(r Range) (int, bool) {
 	c, isContinuous := r.(*continuousRange)
 	if isContinuous && c.min == c.max {
 		return c.min, true
-	} else if isContinuous {
-		return 0, false
 	}
 
-	nextValue := r.Values()
-
-	var index int
-	var result int
-
-	for value, ok := nextValue(); ok; value, ok = nextValue() {
-		if index > 0 {
-			return 0, false
-		}
-		result = value
-		index++
-	}
-
-	return result, true
+	return 0, false
 }
 
 // Returns true if two ranges contain the exact same elements.

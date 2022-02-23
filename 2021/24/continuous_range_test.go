@@ -18,7 +18,7 @@ func TestSplitContinuousRange(t *testing.T) {
 			min:    2,
 			max:    10,
 			step:   2,
-			around: &continuousRange{min: 5, max: 5, step: 1},
+			around: newContinuousRange(5, 5, 1),
 			expected: []*continuousRange{
 				newContinuousRange(2, 4, 2),
 				nil,
