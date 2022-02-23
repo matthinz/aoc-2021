@@ -162,10 +162,6 @@ func (r *moduloRange) Includes(value int) bool {
 	return false
 }
 
-func (r *moduloRange) Split(around Range) (Range, Range, Range) {
-	return newSplitRanges(r, around)
-}
-
 func (r *moduloRange) Values() func() (int, bool) {
 
 	pos := 0

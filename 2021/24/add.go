@@ -167,10 +167,6 @@ func (r *sumRange) Includes(value int) bool {
 	return false
 }
 
-func (r *sumRange) Split(around Range) (Range, Range, Range) {
-	return newSplitRanges(r, around)
-}
-
 func (r *sumRange) String() string {
 	return fmt.Sprintf("<%s + %s>", r.lhs.String(), r.rhs.String())
 }

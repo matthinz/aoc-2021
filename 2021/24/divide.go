@@ -300,10 +300,6 @@ func (r *divisionRange) Includes(value int) bool {
 	return false
 }
 
-func (r *divisionRange) Split(around Range) (Range, Range, Range) {
-	return newSplitRanges(r, around)
-}
-
 func (r *divisionRange) String() string {
 	return fmt.Sprintf("<%s / %s>", r.lhs.String(), r.rhs.String())
 }

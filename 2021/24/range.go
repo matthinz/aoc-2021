@@ -4,11 +4,6 @@ type Range interface {
 	// Returns whether this range includes the given value
 	Includes(value int) bool
 
-	// Splits this range around <around>. Returns 3 new Ranges representing
-	// the portion of the range less than <around>, <around> itself, and the
-	// portion of the range greater than <around>.
-	Split(around Range) (Range, Range, Range)
-
 	String() string
 
 	// Returns a function that, when executed, returns the next value in the

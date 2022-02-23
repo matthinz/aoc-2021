@@ -247,10 +247,6 @@ func (r *multiplyRange) Includes(value int) bool {
 	return false
 }
 
-func (r *multiplyRange) Split(around Range) (Range, Range, Range) {
-	return newSplitRanges(r, around)
-}
-
 func (r *multiplyRange) String() string {
 	return fmt.Sprintf("<%s * %s>", r.lhs.String(), r.rhs.String())
 }
