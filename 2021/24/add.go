@@ -154,10 +154,28 @@ func (e *AddExpression) Simplify() Expression {
 	return result
 }
 
+func (e *AddExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
+	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
+	expr := NewAddExpression(lhs, rhs)
+	return expr.Simplify()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // sumRange
 
 func (r *sumRange) Includes(value int) bool {
+
+	lhsBounded, lhsIsBounded := r.lhs.(BoundedRange)
+	rhsBounded, rhsIsBounded := r.rhs.(BoundedRange)
+
+	if lhsIsBounded && rhsIsBounded {
+		inBounds := (value >= lhsBounded.Min()+rhsBounded.Min()) && (value <= lhsBounded.Max()+rhsBounded.Max())
+		if !inBounds {
+			return false
+		}
+	}
+
 	next := r.Values()
 	for v, ok := next(); ok; v, ok = next() {
 		if v == value {

@@ -107,6 +107,13 @@ func (e *EqualsExpression) Simplify() Expression {
 	return expr
 }
 
+func (e *EqualsExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
+	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
+	expr := NewEqualsExpression(lhs, rhs)
+	return expr.Simplify()
+}
+
 func (e *EqualsExpression) String() string {
 	return fmt.Sprintf("(%s == %s ? 1 : 0)", e.lhs.String(), e.rhs.String())
 }

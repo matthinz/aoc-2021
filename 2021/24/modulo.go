@@ -149,6 +149,13 @@ func (e *ModuloExpression) Simplify() Expression {
 	return expr
 }
 
+func (e *ModuloExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
+	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
+	expr := NewModuloExpression(lhs, rhs)
+	return expr.Simplify()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // moduloRange
 

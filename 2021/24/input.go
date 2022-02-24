@@ -57,6 +57,14 @@ func (e *InputExpression) Simplify() Expression {
 	return e
 }
 
+func (e *InputExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+	value, ok := inputs[e.index]
+	if !ok {
+		return e
+	}
+	return NewLiteralExpression(value)
+}
+
 func (e *InputExpression) String() string {
 	return fmt.Sprintf("i%d", e.index)
 }

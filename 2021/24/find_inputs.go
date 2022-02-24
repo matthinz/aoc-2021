@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"reflect"
 )
 
 const ActuallyLog = true
@@ -12,7 +11,7 @@ const ActuallyLog = true
 // Take a binary expression (e.g. a +, *, /, etc.) and find inputs required
 // to get it to equal <target>
 func findInputsForBinaryExpression(
-	e BinaryExpression,
+	b BinaryExpression,
 	target int,
 	getRhsValues func(lhsValue int, rhsRange Range) (chan int, error),
 	d InputDecider,
@@ -23,49 +22,43 @@ func findInputsForBinaryExpression(
 		l = log.New(ioutil.Discard, "", log.Flags())
 	}
 
-	lhsRange := e.Lhs().Range()
-	rhsRange := e.Rhs().Range()
+	e := b.(Expression)
 
-	l.Printf("findInputsForBinaryExpression: %s", e.String())
-	l.Printf("lhs range: %v", lhsRange.String())
-	l.Printf("rhs range: %v", rhsRange.String())
+	r := e.Range()
+	if !r.Includes(target) {
+		return nil, fmt.Errorf("Range of expression %s (%s) does not include %d", e.String(), r.String(), target)
+	}
+
+	lhsRange := b.Lhs().Range()
+	rhsRange := b.Rhs().Range()
 
 	var best map[int]int
-
-	t := reflect.TypeOf(lhsRange).Elem()
-	l.Printf("lhsRange: %s", t.Name())
 
 	// for each value in left side's range, look for a corresponding value in the
 	// right side's range and figure out the inputs needed to get them both to go there
 	nextLhsValue := lhsRange.Values()
 	for lhsValue, ok := nextLhsValue(); ok; lhsValue, ok = nextLhsValue() {
-		l.Printf("lhsValue: %d", lhsValue)
-
 		potentialRhsValues, err := getRhsValues(lhsValue, rhsRange)
 
 		if err != nil {
-			l.Printf(err.Error())
+			l.Print(err.Error())
 			continue
 		}
 
 		for rhsValue := range potentialRhsValues {
-			l.Printf("rhsValue: %d", rhsValue)
-
-			lhsInputs, err := e.Lhs().FindInputs(lhsValue, d, l)
+			lhsInputs, err := b.Lhs().FindInputs(lhsValue, d, l)
 
 			if err != nil {
-				l.Printf(err.Error())
+				l.Print(err.Error())
 				continue
 			}
 
-			rhsInputs, err := e.Rhs().FindInputs(rhsValue, d, l)
+			rhsInputs, err := b.Rhs().FindInputs(rhsValue, d, l)
 
 			if err != nil {
-				l.Printf(err.Error())
+				l.Print(err.Error())
 				continue
 			}
-
-			l.Printf("lhsInputs: %v, rhsInputs: %v", lhsInputs, rhsInputs)
 
 			bothSidesInSync := true
 			inputs := make(map[int]int, len(lhsInputs)+len(rhsInputs))
@@ -101,7 +94,11 @@ func findInputsForBinaryExpression(
 	}
 
 	if best == nil {
-		return nil, fmt.Errorf("No inputs can reach %d for ranges %v and %v", target, lhsRange, rhsRange)
+		return nil, fmt.Errorf("No inputs can reach %d for %s (searching %s : %s)", target, e.String(), lhsRange.String(), rhsRange.String())
+	}
+
+	if len(best) > 4 {
+		l.Printf("%s @ %d: %v", e.String(), target, best)
 	}
 
 	return best, nil

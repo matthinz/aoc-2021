@@ -41,6 +41,10 @@ func (e *LiteralExpression) Simplify() Expression {
 	return e
 }
 
+func (e *LiteralExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+	return e
+}
+
 func (e *LiteralExpression) String() string {
 	return strconv.FormatInt(int64(e.value), 10)
 }

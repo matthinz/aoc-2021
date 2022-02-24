@@ -14,6 +14,10 @@ func newContinuousRange(min, max, step int) *continuousRange {
 		min = temp
 	}
 
+	if step == 0 {
+		panic("0 is not a valid step")
+	}
+
 	if (max-min)%step != 0 {
 		panic(fmt.Sprintf("not possible to get to %d from %d at step %d", max, min, step))
 	}

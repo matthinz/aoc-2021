@@ -91,17 +91,25 @@ func (e *MultiplyExpression) Range() Range {
 
 	if lhsIsContinuous && rhsIsContinuous {
 		if lhsContinuous.min == lhsContinuous.max {
-			e.cachedRange = newContinuousRange(
-				lhsContinuous.min*rhsContinuous.min,
-				lhsContinuous.max*rhsContinuous.max,
-				lhsContinuous.min,
-			)
+			if lhsContinuous.min == 0 {
+				e.cachedRange = newContinuousRange(0, 0, 1)
+			} else {
+				e.cachedRange = newContinuousRange(
+					lhsContinuous.min*rhsContinuous.min,
+					lhsContinuous.max*rhsContinuous.max,
+					lhsContinuous.min,
+				)
+			}
 		} else if rhsContinuous.min == rhsContinuous.max {
-			e.cachedRange = newContinuousRange(
-				lhsContinuous.min*rhsContinuous.min,
-				lhsContinuous.max*rhsContinuous.max,
-				rhsContinuous.min,
-			)
+			if rhsContinuous.min == 0 {
+				e.cachedRange = newContinuousRange(0, 0, 1)
+			} else {
+				e.cachedRange = newContinuousRange(
+					lhsContinuous.min*rhsContinuous.min,
+					lhsContinuous.max*rhsContinuous.max,
+					rhsContinuous.min,
+				)
+			}
 		} else if rhsContinuous.min == 0 && rhsContinuous.max == 1 {
 			if lhsContinuous.Includes(0) {
 				e.cachedRange = lhsContinuous
@@ -234,10 +242,28 @@ func (e *MultiplyExpression) Simplify() Expression {
 	return expr
 }
 
+func (e *MultiplyExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
+	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
+	expr := NewMultiplyExpression(lhs, rhs)
+	return expr.Simplify()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // multiplyRange
 
 func (r *multiplyRange) Includes(value int) bool {
+
+	lhsBounded, lhsIsBounded := r.lhs.(BoundedRange)
+	rhsBounded, rhsIsBounded := r.rhs.(BoundedRange)
+
+	if lhsIsBounded && rhsIsBounded {
+		inBounds := (value >= lhsBounded.Min()*rhsBounded.Min()) && (value <= lhsBounded.Max()*rhsBounded.Max())
+		if !inBounds {
+			return false
+		}
+	}
+
 	nextValue := r.Values()
 	for v, ok := nextValue(); ok; v, ok = nextValue() {
 		if v == value {

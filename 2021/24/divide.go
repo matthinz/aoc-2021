@@ -118,18 +118,22 @@ func (e *DivideExpression) Range() Range {
 
 			if rhsContinuous.min == rhsContinuous.max {
 
-				rhsIsFactorOfLhsStep := (lhsContinuous.step/rhsContinuous.min)*rhsContinuous.min == lhsContinuous.step
+				if rhsContinuous.min == 0 {
+					e.cachedRange = EmptyRange
+				} else {
 
-				if rhsIsFactorOfLhsStep {
-					// If lhs is continuous and rhs is a factor of the step of lhs,
-					// then we can cleanly divide everything
-					e.cachedRange = newContinuousRange(
-						lhsContinuous.min/rhsContinuous.min,
-						lhsContinuous.max/rhsContinuous.max,
-						lhsContinuous.step/rhsContinuous.min,
-					)
+					rhsIsFactorOfLhsStep := (lhsContinuous.step/rhsContinuous.min)*rhsContinuous.min == lhsContinuous.step
+
+					if rhsIsFactorOfLhsStep {
+						// If lhs is continuous and rhs is a factor of the step of lhs,
+						// then we can cleanly divide everything
+						e.cachedRange = newContinuousRange(
+							lhsContinuous.min/rhsContinuous.min,
+							lhsContinuous.max/rhsContinuous.max,
+							lhsContinuous.step/rhsContinuous.min,
+						)
+					}
 				}
-
 			}
 
 		}
@@ -184,6 +188,13 @@ func (e *DivideExpression) Simplify() Expression {
 	return result
 }
 
+func (e *DivideExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
+	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
+	expr := NewDivideExpression(lhs, rhs)
+	return expr.Simplify()
+}
+
 // Attempts to divide an expression by an integer value, returning
 // a new Expression if successful. If the operation is not possible, returns
 // nil.
@@ -222,7 +233,6 @@ func divideExpressionByInt(dividend Expression, divisor int) Expression {
 		lhs := divideExpressionByInt(sum.lhs, divisor)
 		rhs := divideExpressionByInt(sum.rhs, divisor)
 		if lhs != nil && rhs != nil {
-			fmt.Printf("lhs: %s, rhs: %s\n", lhs.String(), rhs.String())
 			return NewAddExpression(lhs, rhs)
 		}
 	}

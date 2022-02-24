@@ -20,13 +20,13 @@ type Expression interface {
 	FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error)
 	Range() Range
 	Simplify() Expression
+	SimplifyUsingPartialInputs(inputs map[int]int) Expression
 	String() string
 }
 
 type BinaryExpression interface {
 	Lhs() Expression
 	Rhs() Expression
-	String() string
 }
 
 // binaryExpression is an embeddable Expression comprised of two expressions,
