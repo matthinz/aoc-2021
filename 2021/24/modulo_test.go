@@ -1,7 +1,6 @@
 package d24
 
 import (
-	"log"
 	"sort"
 	"testing"
 )
@@ -37,93 +36,6 @@ func TestModuloExpressionEvaluate(t *testing.T) {
 			actual := expr.Evaluate(test.inputs)
 			if actual != test.expected {
 				t.Errorf("%s: for inputs %v expected %d but got %d", expr.String(), test.inputs, test.expected, actual)
-			}
-		})
-	}
-}
-
-func TestModuloExpressionFindInputs(t *testing.T) {
-	type findInputsTest struct {
-		name        string
-		lhs         Expression
-		rhs         Expression
-		target      int
-		decider     InputDecider
-		expected    []int
-		expectError bool
-	}
-
-	tests := []findInputsTest{
-		{
-			name:     "TwoLiterals",
-			lhs:      NewLiteralExpression(10),
-			rhs:      NewLiteralExpression(3),
-			target:   1,
-			decider:  PreferFirstSetOfInputs,
-			expected: []int{},
-		},
-		{
-			name:        "TwoLiteralsCantHitTarget",
-			lhs:         NewLiteralExpression(10),
-			rhs:         NewLiteralExpression(3),
-			target:      45,
-			decider:     PreferFirstSetOfInputs,
-			expectError: true,
-		},
-		{
-			name:     "LhsLiteralRhsInput",
-			lhs:      NewLiteralExpression(10),
-			rhs:      NewInputExpression(0),
-			target:   1,
-			decider:  PreferFirstSetOfInputs,
-			expected: []int{3},
-		},
-		{
-			name:     "LhsInputRhsLiteral",
-			lhs:      NewInputExpression(0),
-			rhs:      NewLiteralExpression(6),
-			target:   1,
-			decider:  PreferInputsThatMakeLargerNumber,
-			expected: []int{7},
-		},
-		{
-			name:     "ComplexWithBigNumbers",
-			lhs:      NewLiteralExpression(12345678),
-			rhs:      NewAddExpression(NewInputExpression(0), NewLiteralExpression(25)),
-			target:   15,
-			decider:  PreferFirstSetOfInputs,
-			expected: []int{8},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			expr := NewModuloExpression(test.lhs, test.rhs)
-			actualMap, err := expr.FindInputs(test.target, test.decider, log.Default())
-
-			if test.expectError && err == nil {
-				t.Fatalf("Expected test to error but it didn't")
-			} else if err != nil && !test.expectError {
-				t.Fatal(err)
-			}
-
-			if test.expectError {
-				return
-			}
-
-			actual := make([]int, len(actualMap))
-			for index, value := range actualMap {
-				actual[index] = value
-			}
-
-			if len(actual) != len(test.expected) {
-				t.Fatalf("Wrong # of items in result. Expected %v (%d), got %v (%d)", test.expected, len(test.expected), actual, len(actual))
-			}
-
-			for i := range test.expected {
-				if actual[i] != test.expected[i] {
-					t.Errorf("Item %d is wrong. Expected %d, got %d", i, test.expected[i], actual[i])
-				}
 			}
 		})
 	}

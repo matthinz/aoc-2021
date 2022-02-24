@@ -2,7 +2,6 @@ package d24
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,35 +55,6 @@ func (e *ModuloExpression) Accept(visitor func(e Expression)) {
 
 func (e *ModuloExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) % e.rhs.Evaluate(inputs)
-}
-
-func (e *ModuloExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
-	return findInputsForBinaryExpression(
-		e,
-		target,
-		func(lhsValue int, rhsRange Range) (chan int, error) {
-			// need to find rhsValues such that lhsValue % rhsValue = target
-			// these would be factors of lhsValue - target
-			// TODO: smarter way
-
-			result := make(chan int)
-
-			go func() {
-				defer close(result)
-
-				nextRhsValue := rhsRange.Values()
-				for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
-					if lhsValue%rhsValue == target {
-						result <- rhsValue
-					}
-				}
-			}()
-
-			return result, nil
-		},
-		d,
-		l,
-	)
 }
 
 func (e *ModuloExpression) Range() Range {

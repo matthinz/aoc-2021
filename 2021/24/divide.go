@@ -2,7 +2,6 @@ package d24
 
 import (
 	"fmt"
-	"log"
 )
 
 type DivideExpression struct {
@@ -32,77 +31,6 @@ func (e *DivideExpression) Accept(visitor func(e Expression)) {
 
 func (e *DivideExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) / e.rhs.Evaluate(inputs)
-}
-
-func (e *DivideExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
-	return findInputsForBinaryExpression(
-		e,
-		target,
-		func(dividend int, divisorRange Range) (chan int, error) {
-
-			// 4th grade math recap: dividend / divisor = target
-			// here we return potential divisors between min and max that will equal target
-
-			ch := make(chan int)
-
-			go func() {
-				defer close(ch)
-
-				if target == 0 {
-					// When target == 0, divisor can't affect the result, except when it
-					// can. We're doing integer division, so a large enough divisor *could* get us to zero
-					// e.g if we're doing 6 / x = 0, any x > 6 will result in 0
-
-					nextPotentialDivisor := divisorRange.Values()
-
-					if dividend == 0 {
-						// It does not matter what the divisor is -- any non-zero value
-						// in divisorRange will work
-						for divisor, ok := nextPotentialDivisor(); ok; divisor, ok = nextPotentialDivisor() {
-							if divisor != 0 {
-								ch <- divisor
-							}
-						}
-						return
-					}
-
-					// Any number *larger* than dividend will result in 0
-					for divisor, ok := nextPotentialDivisor(); ok; divisor, ok = nextPotentialDivisor() {
-						if divisor == 0 {
-							continue
-						}
-						if divisor > dividend {
-							ch <- divisor
-						}
-					}
-					return
-				}
-
-				// dividend / divisor = target
-				// dividend = divisor * target
-				// divisor = dividend / target
-				divisor := dividend / target
-
-				if divisor == 0 {
-					return
-				}
-
-				if dividend/divisor != target {
-					return
-				}
-
-				if !divisorRange.Includes(divisor) {
-					return
-				}
-
-				ch <- divisor
-			}()
-
-			return ch, nil
-		},
-		d,
-		l,
-	)
 }
 
 func (e *DivideExpression) Range() Range {

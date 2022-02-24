@@ -2,7 +2,6 @@ package d24
 
 import (
 	"fmt"
-	"log"
 )
 
 // AddExpression defines a BinaryExpression that adds its left and righthand sides.
@@ -35,29 +34,6 @@ func (e *AddExpression) Accept(visitor func(e Expression)) {
 
 func (e *AddExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) + e.rhs.Evaluate(inputs)
-}
-
-func (e *AddExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
-	return findInputsForBinaryExpression(
-		e,
-		target,
-		func(lhsValue int, rhsRange Range) (chan int, error) {
-			ch := make(chan int)
-
-			go func() {
-				defer close(ch)
-
-				rhsValue := target - lhsValue
-				if rhsRange.Includes(rhsValue) {
-					ch <- rhsValue
-				}
-			}()
-
-			return ch, nil
-		},
-		d,
-		l,
-	)
 }
 
 func (e *AddExpression) Range() Range {

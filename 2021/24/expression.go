@@ -2,22 +2,14 @@ package d24
 
 import (
 	"fmt"
-	"log"
 	"math"
 )
-
-// InputDecider takes two sets of inputs and decides which one to use.
-// If no decision can be made, it should return an error.
-type InputDecider func(a, b map[int]int) (map[int]int, error)
 
 // Expression is a generic interface encapsulating an expression that can
 // be evaluated with an ALU
 type Expression interface {
 	Accept(visitor func(e Expression))
 	Evaluate(inputs []int) int
-	// Returns a set of inputs that will make this expression evaluate to <target>.
-	// <d> is a function that, given two potential sets of inputs, returns the one that should be preferred.
-	FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error)
 	Range() Range
 	Simplify() Expression
 	SimplifyUsingPartialInputs(inputs map[int]int) Expression

@@ -2,7 +2,6 @@ package d24
 
 import (
 	"fmt"
-	"log"
 )
 
 type EqualsExpression struct {
@@ -33,46 +32,6 @@ func (e *EqualsExpression) Evaluate(inputs []int) int {
 	} else {
 		return 0
 	}
-}
-
-func (e *EqualsExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
-	if target != 0 && target != 1 {
-		return nil, fmt.Errorf("EqualsExpression can't seek a target other than 0 or 1 (got %d)", target)
-	}
-
-	return findInputsForBinaryExpression(
-		e,
-		target,
-		func(lhsValue int, rhsRange Range) (chan int, error) {
-			ch := make(chan int)
-
-			go func() {
-				defer close(ch)
-
-				if target == 0 {
-					// We want any members of rhsRange *not equal to* lhsValue
-					nextRhsValue := rhsRange.Values()
-
-					for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
-						if rhsValue != lhsValue {
-							ch <- rhsValue
-						}
-					}
-
-					return
-				}
-
-				// We must find a value in rhsRange that equals lhsValue
-				if rhsRange.Includes(lhsValue) {
-					ch <- lhsValue
-				}
-			}()
-
-			return ch, nil
-		},
-		d,
-		l,
-	)
 }
 
 func (e *EqualsExpression) Range() Range {

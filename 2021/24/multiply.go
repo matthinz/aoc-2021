@@ -2,7 +2,6 @@ package d24
 
 import (
 	"fmt"
-	"log"
 )
 
 type MultiplyExpression struct {
@@ -33,48 +32,6 @@ func (e *MultiplyExpression) Accept(visitor func(e Expression)) {
 
 func (e *MultiplyExpression) Evaluate(inputs []int) int {
 	return e.lhs.Evaluate(inputs) * e.rhs.Evaluate(inputs)
-}
-
-func (e *MultiplyExpression) FindInputs(target int, d InputDecider, l *log.Logger) (map[int]int, error) {
-	return findInputsForBinaryExpression(
-		e,
-		target,
-		func(lhsValue int, rhsRange Range) (chan int, error) {
-
-			ch := make(chan int)
-
-			go func() {
-				defer close(ch)
-
-				if target == 0 {
-
-					if lhsValue != 0 {
-						// rhsValue *must* be zero
-						if rhsRange.Includes(0) {
-							ch <- 0
-							return
-						}
-					}
-				} else if target == lhsValue {
-					if rhsRange.Includes(1) {
-						ch <- 1
-					}
-					return
-				}
-
-				nextRhsValue := rhsRange.Values()
-				for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
-					if lhsValue*rhsValue == target {
-						ch <- rhsValue
-					}
-				}
-			}()
-
-			return ch, nil
-		},
-		d,
-		l,
-	)
 }
 
 func (e *MultiplyExpression) Range() Range {
