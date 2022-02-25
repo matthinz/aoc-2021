@@ -2,6 +2,7 @@ package d24
 
 import (
 	"fmt"
+	"sort"
 )
 
 type InputExpression struct {
@@ -14,8 +15,18 @@ const MaxInputValue = 9
 
 var inputRange = newContinuousRange(MinInputValue, MaxInputValue, 1)
 
+var inputsByIndex = make(map[int]*InputExpression)
+
 func NewInputExpression(index int) Expression {
-	return &InputExpression{index}
+	expr, ok := inputsByIndex[index]
+	if ok {
+		return expr
+	}
+
+	expr = &InputExpression{index}
+	inputsByIndex[index] = expr
+
+	return expr
 }
 
 func (e *InputExpression) Accept(visitor func(e Expression)) {
@@ -55,5 +66,44 @@ func (e *InputExpression) SimplifyUsingPartialInputs(inputs map[int]int) Express
 }
 
 func (e *InputExpression) String() string {
+	if e == nil {
+		panic("e is nil")
+	}
 	return fmt.Sprintf("i%d", e.index)
+}
+
+// Attempts to combine inputs into either InputExpression or MultiplyExpressions
+func combineInputs(inputs ...*InputExpression) []Expression {
+	sort.Slice(inputs, func(i, j int) bool {
+		return inputs[i].index < inputs[j].index
+	})
+
+	result := make([]Expression, 0, len(inputs))
+
+	inputsLen := len(inputs)
+	for i := 0; i < inputsLen; i++ {
+		if inputs[i] == nil {
+			continue
+		}
+
+		multiple := 1
+
+		for j := i + 1; j < inputsLen; j++ {
+			if inputs[j] == nil {
+				continue
+			}
+			if inputs[j].index == inputs[i].index {
+				multiple++
+				inputs[j] = nil
+			}
+		}
+
+		if multiple == 1 {
+			result = append(result, inputs[i])
+		} else {
+			result = append(result, NewMultiplyExpression(inputs[i], NewLiteralExpression(multiple)))
+		}
+	}
+
+	return result
 }

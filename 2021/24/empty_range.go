@@ -22,7 +22,7 @@ func (r *emptyRange) String() string {
 
 // Returns a function that, when executed, returns the next value in the
 // range along with a boolean indicating whether the call succeeded.
-func (r *emptyRange) Values() func() (int, bool) {
+func (r *emptyRange) Values(context string) func() (int, bool) {
 	return func() (int, bool) {
 		return 0, false
 	}

@@ -49,14 +49,16 @@ func (e *EqualsExpression) Simplify() Expression {
 	lhsRange := lhs.Range()
 	rhsRange := rhs.Range()
 
+	context := fmt.Sprintf("simplify EqualsExpression: %s", e)
+
 	// if all elements of both ranges are equal, we are comparing two equal values
-	if RangesAreEqual(lhsRange, rhsRange) {
+	if RangesAreEqual(lhsRange, rhsRange, context) {
 		return oneLiteral
 	}
 
 	// If the ranges of each side of the comparison will never intersect,
 	// then we can always return "0" for this expression
-	if !RangesIntersect(lhsRange, rhsRange) {
+	if !RangesIntersect(lhsRange, rhsRange, context) {
 		return zeroLiteral
 	}
 

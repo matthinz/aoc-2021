@@ -109,7 +109,7 @@ func TestModuloExpressionRange(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewModuloExpression(test.lhs, test.rhs)
 
-			actual := GetAllValuesOfRange(expr.Range())
+			actual := GetAllValuesOfRange(expr.Range(), test.name)
 
 			if len(actual) != len(test.expected) {
 				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))

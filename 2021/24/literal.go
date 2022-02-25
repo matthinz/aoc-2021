@@ -38,3 +38,15 @@ func (e *LiteralExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expre
 func (e *LiteralExpression) String() string {
 	return strconv.FormatInt(int64(e.value), 10)
 }
+
+func sumLiterals(literals ...*LiteralExpression) *LiteralExpression {
+	var result *LiteralExpression
+	for _, l := range literals {
+		if result == nil {
+			result = l
+		} else if l != nil {
+			result = NewLiteralExpression(l.value + result.value).(*LiteralExpression)
+		}
+	}
+	return result
+}

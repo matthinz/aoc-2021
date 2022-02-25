@@ -66,7 +66,7 @@ func TestMultiplyExpressionRange(t *testing.T) {
 					t.Fatalf("%s: expected '%s', but got '%s'", expr.String(), test.expectedAsString, actual)
 				}
 			} else {
-				actual := GetAllValuesOfRange(expr.Range())
+				actual := GetAllValuesOfRange(expr.Range(), test.name)
 
 				if len(actual) != len(test.expected) {
 					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))

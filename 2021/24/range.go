@@ -1,5 +1,10 @@
 package d24
 
+import (
+	"fmt"
+	"time"
+)
+
 type Range interface {
 	// Returns whether this range includes the given value
 	Includes(value int) bool
@@ -8,14 +13,14 @@ type Range interface {
 
 	// Returns a function that, when executed, returns the next value in the
 	// range along with a boolean indicating whether the call succeeded.
-	Values() func() (int, bool)
+	Values(context string) func() (int, bool)
 }
 
 // Reads all values in the given range into a slice and returns it.
-func GetAllValuesOfRange(r Range) []int {
+func GetAllValuesOfRange(r Range, context string) []int {
 	result := make([]int, 0)
 
-	nextValue := r.Values()
+	nextValue := r.Values(context)
 
 	for value, ok := nextValue(); ok; value, ok = nextValue() {
 		result = append(result, value)
@@ -35,10 +40,10 @@ func GetSingleValueOfRange(r Range) (int, bool) {
 }
 
 // Returns true if two ranges contain the exact same elements.
-func RangesAreEqual(a, b Range) bool {
+func RangesAreEqual(a, b Range, context string) bool {
 
-	nextA := a.Values()
-	nextB := b.Values()
+	nextA := a.Values(context)
+	nextB := b.Values(context)
 
 	for {
 		aValue, aOk := nextA()
@@ -56,7 +61,7 @@ func RangesAreEqual(a, b Range) bool {
 	}
 }
 
-func RangesEqual(a, b Range) bool {
+func RangesEqual(a, b Range, context string) bool {
 
 	aContinuous, aIsContinuous := a.(*continuousRange)
 	bContinuous, bIsContinuous := b.(*continuousRange)
@@ -68,8 +73,8 @@ func RangesEqual(a, b Range) bool {
 	const SeenInA = 1
 	const SeenInB = 2
 
-	nextA := a.Values()
-	nextB := b.Values()
+	nextA := a.Values(context)
+	nextB := b.Values(context)
 
 	seen := make(map[int]uint8)
 
@@ -102,10 +107,10 @@ func RangesEqual(a, b Range) bool {
 }
 
 // Returns true if a and b have _any_ values in common
-func RangesIntersect(a, b Range) bool {
-	nextA := a.Values()
+func RangesIntersect(a, b Range, context string) bool {
+	nextA := a.Values(context)
 	for aValue, ok := nextA(); ok; aValue, ok = nextA() {
-		nextB := b.Values()
+		nextB := b.Values(context)
 		for bValue, ok := nextB(); ok; bValue, ok = nextB() {
 			if aValue == bValue {
 				return true
@@ -119,22 +124,35 @@ func buildBinaryExpressionRangeValues(
 	lhs Range,
 	rhs Range,
 	op func(lhsValue, rhsValue int) int,
+	context string,
 ) *[]int {
-	values := make(map[int]int)
+	started := time.Now()
 
-	nextLhs := lhs.Values()
+	values := make(map[int]int)
+	nextLhs := lhs.Values(context)
+
+	steps := 0
 
 	for lhsValue, ok := nextLhs(); ok; lhsValue, ok = nextLhs() {
-		nextRhs := rhs.Values()
+		nextRhs := rhs.Values(context)
 		for rhsValue, ok := nextRhs(); ok; rhsValue, ok = nextRhs() {
 			value := op(lhsValue, rhsValue)
 			values[value]++
+			steps++
 		}
 	}
 
 	uniqueValues := make([]int, 0, len(values))
 	for value := range values {
 		uniqueValues = append(uniqueValues, value)
+	}
+
+	duration := time.Now().Sub(started)
+	if duration.Seconds() > 1 {
+		fmt.Printf("buildBinaryExpressionRangeValues: %v (%d steps, %d unique values)\n", duration, steps, len(uniqueValues))
+		fmt.Printf("\t%s\n", context)
+		fmt.Printf("\tlhs: %s\n", lhs.String())
+		fmt.Printf("\trhs: %s\n", rhs.String())
 	}
 
 	return &uniqueValues

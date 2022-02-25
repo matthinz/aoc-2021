@@ -221,7 +221,7 @@ func (r *multiplyRange) Includes(value int) bool {
 		}
 	}
 
-	nextValue := r.Values()
+	nextValue := r.Values(fmt.Sprintf("%s includes %d", r, value))
 	for v, ok := nextValue(); ok; v, ok = nextValue() {
 		if v == value {
 			return true
@@ -234,7 +234,7 @@ func (r *multiplyRange) String() string {
 	return fmt.Sprintf("<%s * %s>", r.lhs.String(), r.rhs.String())
 }
 
-func (r *multiplyRange) Values() func() (int, bool) {
+func (r *multiplyRange) Values(context string) func() (int, bool) {
 
 	pos := 0
 
@@ -244,6 +244,7 @@ func (r *multiplyRange) Values() func() (int, bool) {
 				r.lhs,
 				r.rhs,
 				func(lhsValue, rhsValue int) int { return lhsValue * rhsValue },
+				context,
 			)
 		}
 

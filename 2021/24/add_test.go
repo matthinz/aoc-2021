@@ -64,7 +64,7 @@ func TestAddExpressionRange(t *testing.T) {
 					t.Errorf("%s: expected %s but got %s", expr.String(), test.expectedString, actual)
 				}
 			} else {
-				actual := GetAllValuesOfRange(expr.Range())
+				actual := GetAllValuesOfRange(expr.Range(), test.name)
 
 				if len(actual) != len(test.expected) {
 					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
@@ -107,12 +107,51 @@ func TestAddExpressionSimplify(t *testing.T) {
 			rhs:      NewLiteralExpression(0),
 			expected: NewLiteralExpression(8),
 		},
+		{
+			name: "CombineLiteralsWhenAddingTwoSums",
+			lhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(5)),
+			rhs:  NewAddExpression(NewInputExpression(1), NewLiteralExpression(7)),
+			expected: NewAddExpression(
+				NewAddExpression(NewInputExpression(0), NewInputExpression(1)),
+				NewLiteralExpression(12),
+			),
+		},
+		{
+			name: "CombineLiteralsWhenAddingThreeSums",
+			lhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(5)),
+			rhs:  NewAddExpression(NewInputExpression(1), NewAddExpression(NewInputExpression(2), NewLiteralExpression(7))),
+			expected: NewAddExpression(
+				NewAddExpression(NewAddExpression(NewInputExpression(0), NewInputExpression(1)), NewInputExpression(2)),
+				NewLiteralExpression(12),
+			),
+		},
+		{
+			name:     "ConvertSumOfSameInputToMultiplication",
+			lhs:      NewInputExpression(0),
+			rhs:      NewInputExpression(0),
+			expected: NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(2)),
+		},
+		{
+			name: "ConvertSumOfSameInputToMultiplicationDeep",
+			lhs:  NewInputExpression(0),
+			rhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(8)),
+			expected: NewAddExpression(
+				NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(2)),
+				NewLiteralExpression(8),
+			),
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewAddExpression(test.lhs, test.rhs)
 			actual := expr.Simplify()
+			if actual == nil {
+				t.Fatal("Simplify() returned nil")
+			}
+			if test.expected == nil {
+				t.Fatal("test.expected is nil")
+			}
 			if actual.String() != test.expected.String() {
 				t.Errorf("Expected %s but got %s", test.expected.String(), actual.String())
 			}

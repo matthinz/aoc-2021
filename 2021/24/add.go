@@ -107,27 +107,40 @@ func (e *AddExpression) Simplify() Expression {
 	lhs := e.lhs.Simplify()
 	rhs := e.rhs.Simplify()
 
-	lhsRange := lhs.Range()
-	rhsRange := rhs.Range()
+	lhsLiteral, lhsInputs, lhsOther := unrollSumExpression(lhs)
+	rhsLiteral, rhsInputs, rhsOther := unrollSumExpression(rhs)
 
-	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
-	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+	rawInputs := make([]*InputExpression, 0, len(lhsInputs)+len(rhsInputs))
+	rawInputs = append(rawInputs, lhsInputs...)
+	rawInputs = append(rawInputs, rhsInputs...)
 
-	lhsIsSingleValue := lhsIsContinuous && lhsContinuous.min == lhsContinuous.max
-	rhsIsSingleValue := rhsIsContinuous && rhsContinuous.min == rhsContinuous.max
+	others := make([]Expression, 0)
+	others = append(others, lhsOther)
+	others = append(others, rhsOther)
+	others = append(others, combineInputs(rawInputs...)...)
 
-	if lhsIsSingleValue && rhsIsSingleValue {
-		return NewLiteralExpression(lhsContinuous.min + rhsContinuous.min)
-	} else if lhsIsSingleValue && lhsContinuous.min == 0 {
-		return rhs
-	} else if rhsIsSingleValue && rhsContinuous.min == 0 {
-		return lhs
+	var newLhs Expression
+	for _, o := range others {
+		if newLhs == nil {
+			newLhs = o
+		} else if o != nil {
+			newLhs = NewAddExpression(newLhs, o)
+		}
 	}
 
-	result := NewAddExpression(lhs, rhs)
-	result.(*AddExpression).isSimplified = true
+	newRhs := sumLiterals(lhsLiteral, rhsLiteral)
 
-	return result
+	if newLhs != nil && newRhs != nil {
+		expr := NewAddExpression(newLhs, newRhs)
+		expr.(*AddExpression).binaryExpression.isSimplified = true
+		return expr
+	} else if newLhs != nil {
+		return newLhs
+	} else if newRhs != nil {
+		return newRhs
+	} else {
+		return NewLiteralExpression(0)
+	}
 }
 
 func (e *AddExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
@@ -135,6 +148,85 @@ func (e *AddExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expressio
 	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
 	expr := NewAddExpression(lhs, rhs)
 	return expr.Simplify()
+}
+
+// given an expression, attempts to return literal and non-literal parts that can be added together
+func unrollSumExpression(expr Expression) (*LiteralExpression, []*InputExpression, Expression) {
+
+	if literal, isLiteral := expr.(*LiteralExpression); isLiteral {
+		return literal, nil, nil
+	}
+
+	if input, isInput := expr.(*InputExpression); isInput {
+		return nil, []*InputExpression{input}, nil
+	}
+
+	sum, isSum := expr.(*AddExpression)
+	if !isSum {
+		return nil, []*InputExpression{}, expr
+	}
+
+	lhsLiteral, lhsInputs, lhsOther := unrollSumExpression(sum.Lhs())
+	rhsLiteral, rhsInputs, rhsOther := unrollSumExpression(sum.Rhs())
+
+	literal := sumLiterals(lhsLiteral, rhsLiteral)
+
+	inputs := make([]*InputExpression, 0, len(lhsInputs)+len(rhsInputs))
+	inputs = append(inputs, lhsInputs...)
+	inputs = append(inputs, rhsInputs...)
+
+	var other Expression
+	if lhsOther != nil && rhsOther != nil {
+		other = NewAddExpression(lhsOther, rhsOther)
+	} else if lhsOther != nil {
+		other = lhsOther
+	} else if rhsOther != nil {
+		other = rhsOther
+	}
+
+	return literal, inputs, other
+}
+
+func tryCombineSummedInputs(expressions []Expression) []Expression {
+	result := make([]Expression, 0, len(expressions))
+
+	for i := range expressions {
+		if expressions[i] == nil {
+			continue
+		}
+
+		iInput, iIsInput := expressions[i].(*InputExpression)
+		if !iIsInput {
+			continue
+		}
+
+		multiple := 1
+
+		for j := range expressions[i+1:] {
+			if expressions[j] == nil {
+				continue
+			}
+
+			jInput, jIsInput := expressions[j].(*InputExpression)
+			if !jIsInput {
+				continue
+			}
+
+			if iInput.index == jInput.index {
+				// these two inputs can be combined
+				multiple++
+				expressions[j] = nil
+			}
+		}
+
+		if multiple > 1 {
+			result = append(result, NewMultiplyExpression(iInput, NewLiteralExpression(multiple)))
+		} else {
+			result = append(result, iInput)
+		}
+	}
+
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -152,7 +244,7 @@ func (r *sumRange) Includes(value int) bool {
 		}
 	}
 
-	next := r.Values()
+	next := r.Values(fmt.Sprintf("%s includes %d", r, value))
 	for v, ok := next(); ok; v, ok = next() {
 		if v == value {
 			return true
@@ -165,7 +257,7 @@ func (r *sumRange) String() string {
 	return fmt.Sprintf("<%s + %s>", r.lhs.String(), r.rhs.String())
 }
 
-func (r *sumRange) Values() func() (int, bool) {
+func (r *sumRange) Values(context string) func() (int, bool) {
 
 	pos := 0
 
@@ -175,6 +267,7 @@ func (r *sumRange) Values() func() (int, bool) {
 				r.lhs,
 				r.rhs,
 				func(lhsValue, rhsValue int) int { return lhsValue + rhsValue },
+				context,
 			)
 		}
 

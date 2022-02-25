@@ -56,7 +56,7 @@ func TestEqualsExpressionEvaluate(t *testing.T) {
 func TestEqualsExpressionRange(t *testing.T) {
 	expr := NewEqualsExpression(NewLiteralExpression(5), NewLiteralExpression(8))
 	expected := []int{0, 1}
-	actual := GetAllValuesOfRange(expr.Range())
+	actual := GetAllValuesOfRange(expr.Range(), "TestEqualsExpressionRange")
 
 	if len(actual) != len(expected) {
 		t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), expected, len(expected), actual, len(actual))

@@ -64,9 +64,9 @@ func parseInput(r io.Reader) *Registers {
 		expr := makeBinaryExpression(parts[0], lhs, rhs)
 
 		// set the value of the specified register to the expression
-		fmt.Printf("%d: %s \n", lineIndex, line)
+		// fmt.Printf("%d: %s \n", lineIndex, line)
 		simplified := expr.Simplify()
-		fmt.Println(simplified.String())
+		// fmt.Println(simplified.String())
 		result.set(parts[1], simplified)
 
 	}

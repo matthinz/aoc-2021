@@ -130,7 +130,7 @@ func (e *ModuloExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expres
 // moduloRange
 
 func (r *moduloRange) Includes(value int) bool {
-	nextValue := r.Values()
+	nextValue := r.Values(fmt.Sprintf("%s includes %d", r, value))
 	for v, ok := nextValue(); ok; v, ok = nextValue() {
 		if v == value {
 			return true
@@ -139,7 +139,7 @@ func (r *moduloRange) Includes(value int) bool {
 	return false
 }
 
-func (r *moduloRange) Values() func() (int, bool) {
+func (r *moduloRange) Values(context string) func() (int, bool) {
 
 	pos := 0
 
@@ -149,10 +149,10 @@ func (r *moduloRange) Values() func() (int, bool) {
 
 			uniqueValues := make([]int, 0)
 
-			nextRhsValue := r.rhs.Values()
+			nextRhsValue := r.rhs.Values(context)
 			for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
 				values := make(map[int]int)
-				nextLhsValue := r.lhs.Values()
+				nextLhsValue := r.lhs.Values(context)
 
 				for lhsValue, ok := nextLhsValue(); ok; lhsValue, ok = nextLhsValue() {
 					value := lhsValue % rhsValue
@@ -184,7 +184,7 @@ func (r *moduloRange) String() string {
 	const maxLength = 10
 	values := make(map[int]bool)
 
-	nextValue := r.Values()
+	nextValue := r.Values("moduloRange.String()")
 	for value, ok := nextValue(); ok; value, ok = nextValue() {
 		values[value] = true
 		if len(values) > maxLength {

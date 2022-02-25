@@ -88,7 +88,7 @@ func (r *compoundRange) String() string {
 	return fmt.Sprintf("<%s>", strings.Join(items, ","))
 }
 
-func (r *compoundRange) Values() func() (int, bool) {
+func (r *compoundRange) Values(context string) func() (int, bool) {
 
 	var next func() (int, bool)
 
@@ -101,7 +101,7 @@ func (r *compoundRange) Values() func() (int, bool) {
 				if len(ranges) == 0 {
 					return 0, false
 				}
-				next = ranges[0].Values()
+				next = ranges[0].Values(context)
 				ranges = ranges[1:]
 			}
 
