@@ -39,35 +39,22 @@ func GetSingleValueOfRange(r Range) (int, bool) {
 	return 0, false
 }
 
-// Returns true if two ranges contain the exact same elements.
 func RangesAreEqual(a, b Range, context string) bool {
-
-	nextA := a.Values(context)
-	nextB := b.Values(context)
-
-	for {
-		aValue, aOk := nextA()
-		bValue, bOk := nextB()
-
-		if !aOk && !bOk {
-			return true
-		} else if !aOk || !bOk {
-			return false
-		}
-
-		if aValue != bValue {
-			return false
-		}
-	}
-}
-
-func RangesEqual(a, b Range, context string) bool {
-
 	aContinuous, aIsContinuous := a.(*continuousRange)
 	bContinuous, bIsContinuous := b.(*continuousRange)
 
 	if aIsContinuous && bIsContinuous {
 		return *aContinuous == *bContinuous
+	}
+
+	aBounded, aIsBounded := a.(BoundedRange)
+	bBounded, bIsBounded := b.(BoundedRange)
+
+	if aIsBounded && bIsBounded {
+		sameBounds := aBounded.Min() == bBounded.Min() && aBounded.Max() == bBounded.Max()
+		if !sameBounds {
+			return false
+		}
 	}
 
 	const SeenInA = 1
@@ -82,18 +69,22 @@ func RangesEqual(a, b Range, context string) bool {
 		aValue, aOk := nextA()
 		bValue, bOk := nextB()
 
-		if !(aOk && bOk) {
+		if !(aOk || bOk) {
 			break
 		}
 
-		bits := seen[aValue]
-		if bits&SeenInA == 0 {
-			seen[aValue] = bits | SeenInA
+		if aOk {
+			bits := seen[aValue]
+			if bits&SeenInA == 0 {
+				seen[aValue] = bits | SeenInA
+			}
 		}
 
-		bits = seen[bValue]
-		if bits&SeenInB == 0 {
-			seen[bValue] = bits | SeenInB
+		if bOk {
+			bits := seen[bValue]
+			if bits&SeenInB == 0 {
+				seen[bValue] = bits | SeenInB
+			}
 		}
 	}
 
@@ -108,15 +99,40 @@ func RangesEqual(a, b Range, context string) bool {
 
 // Returns true if a and b have _any_ values in common
 func RangesIntersect(a, b Range, context string) bool {
-	nextA := a.Values(context)
-	for aValue, ok := nextA(); ok; aValue, ok = nextA() {
-		nextB := b.Values(context)
-		for bValue, ok := nextB(); ok; bValue, ok = nextB() {
-			if aValue == bValue {
-				return true
-			}
+
+	aContinuous, aIsContinuous := a.(*continuousRange)
+	bContinuous, bIsContinuous := b.(*continuousRange)
+
+	if aIsContinuous && bIsContinuous {
+		return aContinuous.Intersects(bContinuous)
+	}
+
+	aBounded, aIsBounded := a.(BoundedRange)
+	bBounded, bIsBounded := b.(BoundedRange)
+	if aIsBounded && bIsBounded {
+		if aBounded.Max() < bBounded.Min() {
+			return false
+		}
+		if aBounded.Min() > bBounded.Max() {
+			return false
 		}
 	}
+
+	if aIsContinuous || (!bIsContinuous && aIsBounded) {
+		// `Includes()` is a very efficient call for continuousRanges, so use
+		// a for that
+		temp := a
+		a = b
+		b = temp
+	}
+
+	nextA := a.Values(context)
+	for aValue, ok := nextA(); ok; aValue, ok = nextA() {
+		if b.Includes(aValue) {
+			return true
+		}
+	}
+
 	return false
 }
 
