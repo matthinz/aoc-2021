@@ -6,9 +6,12 @@ import (
 )
 
 func TestDivideExpressionEvaluate(t *testing.T) {
-	expr := NewDivideExpression(NewLiteralExpression(15), NewInputExpression(0))
-	expected := 5
-	actual := expr.Evaluate([]int{3})
+	expr := NewDivideExpression(NewLiteralExpression(15), NewLiteralExpression(5))
+	actual, err := expr.Evaluate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := 3
 	if actual != expected {
 		t.Errorf("%s: expected %d, got %d", expr.String(), expected, actual)
 	}

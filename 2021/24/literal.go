@@ -19,8 +19,8 @@ func (e *LiteralExpression) Accept(visitor func(e Expression)) {
 	visitor(e)
 }
 
-func (e *LiteralExpression) Evaluate(inputs []int) int {
-	return e.value
+func (e *LiteralExpression) Evaluate() (int, error) {
+	return e.value, nil
 }
 
 func (e *LiteralExpression) Range() Range {

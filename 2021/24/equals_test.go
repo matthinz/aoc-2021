@@ -9,7 +9,6 @@ func TestEqualsExpressionEvaluate(t *testing.T) {
 		name     string
 		lhs      Expression
 		rhs      Expression
-		inputs   []int
 		expected int
 	}
 
@@ -26,28 +25,17 @@ func TestEqualsExpressionEvaluate(t *testing.T) {
 			rhs:      NewLiteralExpression(8),
 			expected: 0,
 		},
-		{
-			name:     "EqualLiteralAndInput",
-			lhs:      NewLiteralExpression(5),
-			rhs:      NewInputExpression(0),
-			inputs:   []int{5},
-			expected: 1,
-		},
-		{
-			name:     "UnequalLiteralAndInput",
-			lhs:      NewLiteralExpression(5),
-			rhs:      NewInputExpression(0),
-			inputs:   []int{3},
-			expected: 0,
-		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewEqualsExpression(test.lhs, test.rhs)
-			actual := expr.Evaluate(test.inputs)
+			actual, err := expr.Evaluate()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if actual != test.expected {
-				t.Errorf("%s: for inputs %v expected %d but got %d", expr.String(), test.inputs, test.expected, actual)
+				t.Errorf("%s: expected %d but got %d", expr.String(), test.expected, actual)
 			}
 		})
 	}

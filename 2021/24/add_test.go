@@ -5,9 +5,14 @@ import (
 )
 
 func TestAddExpressionEvaluate(t *testing.T) {
-	expr := NewAddExpression(NewLiteralExpression(5), NewInputExpression(0))
+	expr := NewAddExpression(NewLiteralExpression(5), NewLiteralExpression(10))
 	expected := 15
-	actual := expr.Evaluate([]int{10})
+	actual, err := expr.Evaluate()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if actual != expected {
 		t.Errorf("%s: expected %d, got %d", expr.String(), expected, actual)
 	}

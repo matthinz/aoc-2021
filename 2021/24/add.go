@@ -32,8 +32,13 @@ func (e *AddExpression) Accept(visitor func(e Expression)) {
 	e.Rhs().Accept(visitor)
 }
 
-func (e *AddExpression) Evaluate(inputs []int) int {
-	return e.lhs.Evaluate(inputs) + e.rhs.Evaluate(inputs)
+func (e *AddExpression) Evaluate() (int, error) {
+	return evaluateBinaryExpression(
+		e,
+		func(lhs, rhs int) (int, error) {
+			return lhs + rhs, nil
+		},
+	)
 }
 
 func (e *AddExpression) Range() Range {

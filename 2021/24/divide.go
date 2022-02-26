@@ -29,8 +29,16 @@ func (e *DivideExpression) Accept(visitor func(e Expression)) {
 	e.rhs.Accept(visitor)
 }
 
-func (e *DivideExpression) Evaluate(inputs []int) int {
-	return e.lhs.Evaluate(inputs) / e.rhs.Evaluate(inputs)
+func (e *DivideExpression) Evaluate() (int, error) {
+	return evaluateBinaryExpression(
+		e,
+		func(lhs, rhs int) (int, error) {
+			if rhs == 0 {
+				return 0, fmt.Errorf("Can't divide by 0")
+			}
+			return lhs / rhs, nil
+		},
+	)
 }
 
 func (e *DivideExpression) Range() Range {

@@ -21,19 +21,15 @@ func TestModuloExpressionEvaluate(t *testing.T) {
 			rhs:      NewLiteralExpression(4),
 			expected: 3,
 		},
-		{
-			name:     "LiteralAndInput",
-			lhs:      NewLiteralExpression(15),
-			rhs:      NewInputExpression(0),
-			inputs:   []int{4},
-			expected: 3,
-		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewModuloExpression(test.lhs, test.rhs)
-			actual := expr.Evaluate(test.inputs)
+			actual, err := expr.Evaluate()
+			if err != nil {
+				t.Fatal(err)
+			}
 			if actual != test.expected {
 				t.Errorf("%s: for inputs %v expected %d but got %d", expr.String(), test.inputs, test.expected, actual)
 			}

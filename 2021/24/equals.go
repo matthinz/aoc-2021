@@ -24,14 +24,17 @@ func (e *EqualsExpression) Accept(visitor func(e Expression)) {
 	e.rhs.Accept(visitor)
 }
 
-func (e *EqualsExpression) Evaluate(inputs []int) int {
-	lhsValue := e.lhs.Evaluate(inputs)
-	rhsValue := e.rhs.Evaluate(inputs)
-	if lhsValue == rhsValue {
-		return 1
-	} else {
-		return 0
-	}
+func (e *EqualsExpression) Evaluate() (int, error) {
+	return evaluateBinaryExpression(
+		e,
+		func(lhs, rhs int) (int, error) {
+			if lhs == rhs {
+				return 1, nil
+			} else {
+				return 0, nil
+			}
+		},
+	)
 }
 
 func (e *EqualsExpression) Range() Range {

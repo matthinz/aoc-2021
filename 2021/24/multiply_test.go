@@ -6,9 +6,12 @@ import (
 )
 
 func TestMultiplyExpressionEvaluate(t *testing.T) {
-	expr := NewMultiplyExpression(NewLiteralExpression(15), NewInputExpression(0))
+	expr := NewMultiplyExpression(NewLiteralExpression(15), NewLiteralExpression(3))
 	expected := 45
-	actual := expr.Evaluate([]int{3})
+	actual, err := expr.Evaluate()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if actual != expected {
 		t.Errorf("%s: expected %d, got %d", expr.String(), expected, actual)
 	}

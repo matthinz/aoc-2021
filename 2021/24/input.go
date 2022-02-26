@@ -33,8 +33,8 @@ func (e *InputExpression) Accept(visitor func(e Expression)) {
 	visitor(e)
 }
 
-func (e *InputExpression) Evaluate(inputs []int) int {
-	return inputs[e.index]
+func (e *InputExpression) Evaluate() (int, error) {
+	return 0, fmt.Errorf("Unknown input: %d", e.index)
 }
 
 func (e *InputExpression) Includes(value int) bool {

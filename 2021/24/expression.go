@@ -8,7 +8,11 @@ import (
 // be evaluated with an ALU
 type Expression interface {
 	Accept(visitor func(e Expression))
-	Evaluate(inputs []int) int
+
+	// Evaluates this expression and returns an integer value or an error if
+	// evaluation fails.
+	Evaluate() (int, error)
+
 	// Returns the range of output values for this expression
 	Range() Range
 	Simplify() Expression
@@ -44,4 +48,18 @@ func (e *binaryExpression) Rhs() Expression {
 
 func (e *binaryExpression) String() string {
 	return fmt.Sprintf("(%s %s %s)", e.lhs.String(), string(e.operator), e.rhs.String())
+}
+
+func evaluateBinaryExpression(e BinaryExpression, op func(lhs, rhs int) (int, error)) (int, error) {
+	lhsValue, lhsError := e.Lhs().Evaluate()
+	if lhsError != nil {
+		return 0, lhsError
+	}
+
+	rhsValue, rhsError := e.Rhs().Evaluate()
+	if rhsError != nil {
+		return 0, rhsError
+	}
+
+	return op(lhsValue, rhsValue)
 }

@@ -30,8 +30,13 @@ func (e *MultiplyExpression) Accept(visitor func(e Expression)) {
 	e.rhs.Accept(visitor)
 }
 
-func (e *MultiplyExpression) Evaluate(inputs []int) int {
-	return e.lhs.Evaluate(inputs) * e.rhs.Evaluate(inputs)
+func (e *MultiplyExpression) Evaluate() (int, error) {
+	return evaluateBinaryExpression(
+		e,
+		func(lhs, rhs int) (int, error) {
+			return lhs * rhs, nil
+		},
+	)
 }
 
 func (e *MultiplyExpression) Range() Range {
