@@ -109,7 +109,7 @@ func TestDivideExpressionSimplify(t *testing.T) {
 			name:     "DistributeToAdditionAvoidsIntegerDivisionWeirdness",
 			lhs:      NewAddExpression(NewInputExpression(0), NewLiteralExpression(16)),
 			rhs:      NewLiteralExpression(3),
-			expected: NewDivideExpression(NewAddExpression(NewInputExpression(0), NewLiteralExpression(16)), NewLiteralExpression(3)),
+			expected: NewAddExpression(NewDivideExpression(NewInputExpression(0), 3), NewDivideExpression(16, 3)),
 		},
 		{
 			name:     "DontReduceInputs",
@@ -155,10 +155,13 @@ func TestDivideExpressionSimplify(t *testing.T) {
 			rhs: NewLiteralExpression(50),
 			expected: NewAddExpression(
 				NewMultiplyExpression(
-					NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
-					NewMultiplyExpression(NewInputExpression(2), NewLiteralExpression(2)),
+					NewMultiplyExpression(
+						NewInputExpression(2),
+						NewEqualsExpression(NewInputExpression(1), 7),
+					),
+					2,
 				),
-				NewDivideExpression(NewInputExpression(0), NewLiteralExpression(50)),
+				NewDivideExpression(NewInputExpression(0), 50),
 			),
 		},
 		{

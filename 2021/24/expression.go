@@ -89,6 +89,9 @@ func newBinaryExpression(
 		switch value := expressions[i].(type) {
 		case []*AddExpression:
 			for j := range value {
+				if value[j] == nil {
+					continue
+				}
 				if expr == nil {
 					expr = value[j]
 				} else if value[j] != nil {
@@ -97,6 +100,9 @@ func newBinaryExpression(
 			}
 		case []*DivideExpression:
 			for j := range value {
+				if value[j] == nil {
+					continue
+				}
 				if expr == nil {
 					expr = value[j]
 				} else if value[j] != nil {
@@ -105,6 +111,9 @@ func newBinaryExpression(
 			}
 		case []*InputExpression:
 			for j := range value {
+				if value[j] == nil {
+					continue
+				}
 				if expr == nil {
 					expr = value[j]
 				} else if value[j] != nil {
@@ -113,6 +122,9 @@ func newBinaryExpression(
 			}
 		case []*LiteralExpression:
 			for j := range value {
+				if value[j] == nil {
+					continue
+				}
 				if expr == nil {
 					expr = value[j]
 				} else if value[j] != nil {
@@ -121,6 +133,9 @@ func newBinaryExpression(
 			}
 		case []*ModuloExpression:
 			for j := range value {
+				if value[j] == nil {
+					continue
+				}
 				if expr == nil {
 					expr = value[j]
 				} else if value[j] != nil {
@@ -129,6 +144,9 @@ func newBinaryExpression(
 			}
 		case []*MultiplyExpression:
 			for j := range value {
+				if value[j] == nil {
+					continue
+				}
 				if expr == nil {
 					expr = value[j]
 				} else if value[j] != nil {
@@ -137,6 +155,9 @@ func newBinaryExpression(
 			}
 		case []Expression:
 			for j := range value {
+				if value[j] == nil {
+					continue
+				}
 				if expr == nil {
 					expr = value[j]
 				} else if value[j] != nil {
@@ -159,11 +180,8 @@ func newBinaryExpression(
 			result.rhs = expr
 		} else {
 			newLhs := factory(result.lhs, result.rhs)
-			result = binaryExpression{
-				operator: operator,
-				lhs:      newLhs,
-				rhs:      expr,
-			}
+			result.lhs = newLhs
+			result.rhs = expr
 		}
 	}
 

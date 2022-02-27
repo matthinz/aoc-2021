@@ -94,97 +94,120 @@ func (e *DivideExpression) Simplify(inputs map[int]int) Expression {
 	return simplifyBinaryExpression(
 		&e.binaryExpression,
 		inputs,
-		func(lhs, rhs Expression) Expression {
+		func(dividend, divisor Expression) Expression {
 
-			return NewDivideExpression(lhs, rhs)
+			var simplified Expression
+
+			switch expr := dividend.(type) {
+			case *AddExpression:
+				simplified = simplifyDivisionOfAddExpression(expr, divisor, inputs)
+			case *InputExpression:
+				simplified = simplifyDivisionOfInputExpression(expr, divisor, inputs)
+			case *LiteralExpression:
+				simplified = simplifyDivisionOfLiteralExpression(expr, divisor, inputs)
+			case *MultiplyExpression:
+				simplified = simplifyDivisionOfMultiplyExpression(expr, divisor, inputs)
+			}
+
+			if simplified == nil {
+				return NewDivideExpression(
+					dividend,
+					divisor,
+				)
+			} else {
+				return simplified
+			}
 		},
 	)
 }
 
-func recursiveDivide(dividend Expression, divisor Expression) Expression {
-	if sum, isSum := dividend.(*AddExpression); isSum {
-		result := divideSum(sum, divisor)
-		if result != nil {
-			return result
-		}
-	} else if product, isProduct := dividend.(*MultiplyExpression); isProduct {
-		result := divideMultiplyExpression(product, divisor)
-		if result != nil {
-			return result
-		}
-	} else if literal, isLiteral := dividend.(*LiteralExpression); isLiteral {
-		result := divideLiteralExpression(literal, divisor)
-		if result != nil {
-			return result
-		}
-	} else if input, isInput := dividend.(*InputExpression); isInput {
-		result := divideInputExpression(input, divisor)
-		if result != nil {
-			return result
+func simplifyDivisionOfAddExpression(dividend *AddExpression, divisor Expression, inputs map[int]int) Expression {
+	switch divisor := divisor.(type) {
+	case *AddExpression:
+		if *dividend == *divisor {
+			return NewLiteralExpression(1)
 		}
 	}
-
-	return NewDivideExpression(dividend, divisor)
+	result := NewAddExpression(
+		NewDivideExpression(dividend.Lhs(), divisor).Simplify(inputs),
+		NewDivideExpression(dividend.Rhs(), divisor).Simplify(inputs),
+	)
+	return result
 }
 
-func divideInputExpression(dividend *InputExpression, divisor Expression) Expression {
+func simplifyDivisionOfInputExpression(dividend *InputExpression, divisor Expression, inputs map[int]int) Expression {
 	switch d := divisor.(type) {
+	case *LiteralExpression:
+		if d.value == 1 {
+			return dividend
+		}
 	case *InputExpression:
 		if d.index == dividend.index {
 			return NewLiteralExpression(1)
 		}
+	case *MultiplyExpression:
+		// Unroll this expression and look for inputs to cancel
+		literal, inputs, other := unrollMultiplyExpressions(d)
+		for i := range inputs {
+			if inputs[i].index == dividend.index {
+				inputs[i] = nil
+				return NewDivideExpression(
+					NewLiteralExpression(1),
+					NewMultiplyExpression(literal, inputs, other),
+				)
+			}
+		}
 	}
+
 	return nil
 }
 
-func divideLiteralExpression(dividend *LiteralExpression, divisor Expression) Expression {
-	switch d := divisor.(type) {
+func simplifyDivisionOfLiteralExpression(dividend *LiteralExpression, divisor Expression, inputs map[int]int) Expression {
+	if dividend.value == 0 {
+		return NewLiteralExpression(0)
+	}
+
+	switch divisor := divisor.(type) {
 	case *LiteralExpression:
-		value := dividend.value / d.value
-		if value*d.value == dividend.value {
+		if divisor.value == 1 {
+			return dividend
+		}
+		value := dividend.value / divisor.value
+		fmt.Printf("%d / %d = %d\n", dividend.value, divisor.value, value)
+		if value*divisor.value == dividend.value {
 			return NewLiteralExpression(value)
 		}
 	}
 	return nil
 }
 
-func divideMultiplyExpression(dividend *MultiplyExpression, divisor Expression) Expression {
-	literal, inputs, other := unrollMultiplyExpressions(dividend)
+func simplifyDivisionOfMultiplyExpression(dividend *MultiplyExpression, divisor Expression, inputs map[int]int) Expression {
+	literal, inputExpressions, other := unrollMultiplyExpressions(dividend)
 
 	switch d := divisor.(type) {
 	case *LiteralExpression:
 		if literal != nil {
 			value := literal.value / d.value
 			if value*d.value == literal.value {
-				return NewMultiplyExpression(inputs, other, NewLiteralExpression(value))
+				return NewMultiplyExpression(inputExpressions, other, NewLiteralExpression(value)).Simplify(inputs)
 			}
 		}
 	case *InputExpression:
 		found := false
-		for i := range inputs {
-			if inputs[i].index == d.index {
+		for i := range inputExpressions {
+			if inputExpressions[i].index == d.index {
 				// this one cancels
-				inputs[i] = nil
+				inputExpressions[i] = nil
 				found = true
 				break
 			}
 		}
 		if found {
-			return NewMultiplyExpression(literal, inputs, other)
+			return NewMultiplyExpression(literal, inputExpressions, other).Simplify(inputs)
 		}
 	}
 
 	return nil
-}
-
-func divideSum(dividend *AddExpression, divisor Expression) Expression {
-	switch d := divisor.(type) {
-	case *AddExpression:
-		if *dividend == *d {
-			return NewLiteralExpression(1)
-		}
-	}
-	return NewDivideExpression(dividend, divisor)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

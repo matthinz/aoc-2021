@@ -7,8 +7,10 @@ import (
 func TestNewAddExpression(t *testing.T) {
 	expr := NewAddExpression(
 		5,
+		nil,
 		[]*InputExpression{
 			NewInputExpression(7).(*InputExpression),
+			nil,
 			NewInputExpression(9).(*InputExpression),
 		},
 	)

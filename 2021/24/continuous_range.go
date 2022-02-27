@@ -45,13 +45,11 @@ func (r *continuousRange) Intersects(other *continuousRange) bool {
 		lhs, rhs := tests[i][0], tests[i][1]
 
 		minInside := lhs.min >= rhs.min && lhs.min <= rhs.max
-		fmt.Printf("%s, %s minInside: %v\n", lhs, rhs, minInside)
 		if minInside {
 			return (lhs.min-rhs.min)%lhs.step == 0
 		}
 
 		maxInside := lhs.max >= rhs.min && lhs.max <= rhs.max
-		fmt.Printf("%s, %s maxInside: %v\n", lhs, rhs, maxInside)
 		if maxInside {
 			return (lhs.max-rhs.min)%lhs.step == 0
 		}
