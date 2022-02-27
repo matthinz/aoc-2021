@@ -37,13 +37,17 @@ type moduloRange struct {
 	cachedValues *[]int
 }
 
-func NewModuloExpression(lhs, rhs Expression) Expression {
+func NewModuloExpression(expressions ...interface{}) Expression {
+	b := newBinaryExpression(
+		'%',
+		NewModuloExpression,
+		expressions,
+	)
+	if b.rhs == nil {
+		return b.lhs
+	}
 	return &ModuloExpression{
-		binaryExpression: binaryExpression{
-			lhs:      lhs,
-			rhs:      rhs,
-			operator: '%',
-		},
+		binaryExpression: b,
 	}
 }
 
@@ -96,42 +100,37 @@ func (e *ModuloExpression) Range() Range {
 	return e.cachedRange
 }
 
-func (e *ModuloExpression) Simplify() Expression {
-	if e.isSimplified {
-		return e
-	}
+func (e *ModuloExpression) Simplify(inputs map[int]int) Expression {
+	return simplifyBinaryExpression(
+		&e.binaryExpression,
+		inputs,
+		func(lhs, rhs Expression) Expression {
+			lhsRange := lhs.Range()
+			rhsRange := rhs.Range()
 
-	lhs := e.lhs.Simplify()
-	rhs := e.rhs.Simplify()
+			lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
+			rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
 
-	lhsRange := lhs.Range()
-	rhsRange := rhs.Range()
+			if rhsIsSingleValue && rhsSingleValue == 0 {
+				// TODO: This is invalid
+				return NewModuloExpression(lhs, rhs)
+			}
 
-	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
-	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+			// If lhs is 0, we can resolve to zero
+			if lhsIsSingleValue && lhsSingleValue == 0 {
+				return zeroLiteral
+			}
 
-	// If lhs is 0, we can resolve to zero
-	if lhsIsSingleValue && lhsSingleValue == 0 {
-		return zeroLiteral
-	}
+			// If both ranges are single numbers, we can simplify to a literal
+			if lhsIsSingleValue && rhsIsSingleValue {
+				return NewLiteralExpression(lhsSingleValue % rhsSingleValue)
+			}
 
-	// If both ranges are single numbers, we can simplify to a literal
-	if lhsIsSingleValue && rhsIsSingleValue {
-		return NewLiteralExpression(lhsSingleValue % rhsSingleValue)
-	}
+			// TODO: If lhs is 1 number and *less than* the rhs range, we can eval to a literal
 
-	// TODO: If lhs is 1 number and *less than* the rhs range, we can eval to a literal
-
-	expr := NewModuloExpression(lhs, rhs)
-	expr.(*ModuloExpression).isSimplified = true
-	return expr
-}
-
-func (e *ModuloExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
-	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
-	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
-	expr := NewModuloExpression(lhs, rhs)
-	return expr.Simplify()
+			return NewModuloExpression(lhs, rhs)
+		},
+	)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

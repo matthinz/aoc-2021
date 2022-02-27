@@ -13,13 +13,17 @@ type divisionRange struct {
 	cachedValues *[]int
 }
 
-func NewDivideExpression(lhs, rhs Expression) Expression {
+func NewDivideExpression(expressions ...interface{}) Expression {
+	b := newBinaryExpression(
+		'/',
+		NewDivideExpression,
+		expressions,
+	)
+	if b.rhs == nil {
+		return b.lhs
+	}
 	return &DivideExpression{
-		binaryExpression: binaryExpression{
-			lhs:      lhs,
-			rhs:      rhs,
-			operator: '/',
-		},
+		binaryExpression: b,
 	}
 }
 
@@ -86,194 +90,101 @@ func (e *DivideExpression) Range() Range {
 	return e.cachedRange
 }
 
-func (e *DivideExpression) Simplify() Expression {
-	if e.binaryExpression.isSimplified {
-		return e
-	}
+func (e *DivideExpression) Simplify(inputs map[int]int) Expression {
+	return simplifyBinaryExpression(
+		&e.binaryExpression,
+		inputs,
+		func(lhs, rhs Expression) Expression {
 
-	lhs := e.lhs.Simplify()
-	rhs := e.rhs.Simplify()
-
-	lhsRange := lhs.Range()
-	rhsRange := rhs.Range()
-
-	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
-	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
-
-	if lhsIsContinuous && lhsContinuous.min == 0 && lhsContinuous.max == 0 {
-		return NewLiteralExpression(0)
-	}
-
-	if rhsIsContinuous && rhsContinuous.min == rhsContinuous.max {
-		expr := divideExpressionByInt(lhs, rhsContinuous.min)
-		if expr != nil {
-			return expr.Simplify()
-		}
-	}
-
-	if expr := cancelMultiplication(lhs, rhs); expr != nil {
-		return expr.Simplify()
-	}
-
-	result := NewDivideExpression(lhs, rhs)
-	result.(*DivideExpression).isSimplified = true
-
-	return result
+			return NewDivideExpression(lhs, rhs)
+		},
+	)
 }
 
-func (e *DivideExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
-	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
-	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
-	expr := NewDivideExpression(lhs, rhs)
-	return expr.Simplify()
-}
-
-func cancelMultiplication(lhs, rhs Expression) Expression {
-
-	lhsMultiply, lhsIsMultiply := lhs.(*MultiplyExpression)
-	rhsMultiply, rhsIsMultiply := rhs.(*MultiplyExpression)
-
-	if !(lhsIsMultiply || rhsIsMultiply) {
-		return nil
-	}
-
-	if lhsIsMultiply {
-		// Search for rhs in lhs and change it to 1
-		newLhs := removeExpressionFromMultiply(lhsMultiply, rhs)
-		if newLhs != nil {
-			return newLhs
-		}
-	}
-
-	if rhsIsMultiply {
-		newRhs := removeExpressionFromMultiply(rhsMultiply, lhs)
-		if newRhs != nil {
-			return NewDivideExpression(NewLiteralExpression(1), newRhs)
-		}
-	}
-
-	return nil
-}
-
-func removeExpressionFromMultiply(m *MultiplyExpression, exprToRemove Expression) Expression {
-
-	fmt.Printf("removeExpressionFromMultiply: %s (remove %s)\n", m.String(), exprToRemove.String())
-	fmt.Printf("%v == %v: %v\n", m.lhs, exprToRemove, m.lhs == exprToRemove)
-	fmt.Printf("%v == %v: %v\n", m.rhs, exprToRemove, m.rhs == exprToRemove)
-
-	if m.lhs == exprToRemove {
-		return m.rhs
-	}
-	if m.rhs == exprToRemove {
-		return m.lhs
-	}
-	// if either lhs or rhs is itself a MultiplyExpression, recurse in
-	if lhsMultiply, lhsIsMultiply := m.lhs.(*MultiplyExpression); lhsIsMultiply {
-		newLhs := removeExpressionFromMultiply(lhsMultiply, exprToRemove)
-		if newLhs != nil {
-			return NewMultiplyExpression(newLhs, m.rhs)
-		}
-	}
-
-	if rhsMultiply, rhsIsMultiply := m.rhs.(*MultiplyExpression); rhsIsMultiply {
-		newRhs := removeExpressionFromMultiply(rhsMultiply, exprToRemove)
-		if newRhs != nil {
-			return NewMultiplyExpression(m.lhs, newRhs)
-		}
-	}
-
-	return nil
-}
-
-// Attempts to divide an expression by an integer value, returning
-// a new Expression if successful. If the operation is not possible, returns
-// nil.
-func divideExpressionByInt(dividend Expression, divisor int) Expression {
-	if divisor == 0 {
-		return nil
-	}
-
-	if divisor == 1 {
-		return dividend
-	}
-
-	if literal, isLiteral := dividend.(*LiteralExpression); isLiteral {
-		return divideLiteralByInt(*literal, divisor)
-	}
-
-	input, isInput := dividend.(*InputExpression)
-	if isInput {
-		expr := NewDivideExpression(input, NewLiteralExpression(divisor))
-		expr.(*DivideExpression).isSimplified = true
-		return expr
-	}
-
+func recursiveDivide(dividend Expression, divisor Expression) Expression {
 	if sum, isSum := dividend.(*AddExpression); isSum {
-		lhs := divideExpressionByInt(sum.lhs, divisor)
-		rhs := divideExpressionByInt(sum.rhs, divisor)
-		if lhs != nil && rhs != nil {
-			return NewAddExpression(lhs, rhs)
+		result := divideSum(sum, divisor)
+		if result != nil {
+			return result
+		}
+	} else if product, isProduct := dividend.(*MultiplyExpression); isProduct {
+		result := divideMultiplyExpression(product, divisor)
+		if result != nil {
+			return result
+		}
+	} else if literal, isLiteral := dividend.(*LiteralExpression); isLiteral {
+		result := divideLiteralExpression(literal, divisor)
+		if result != nil {
+			return result
+		}
+	} else if input, isInput := dividend.(*InputExpression); isInput {
+		result := divideInputExpression(input, divisor)
+		if result != nil {
+			return result
 		}
 	}
 
-	if multiply, isMultiply := dividend.(*MultiplyExpression); isMultiply {
-		return divideMultiplyByInt(*multiply, divisor)
+	return NewDivideExpression(dividend, divisor)
+}
+
+func divideInputExpression(dividend *InputExpression, divisor Expression) Expression {
+	switch d := divisor.(type) {
+	case *InputExpression:
+		if d.index == dividend.index {
+			return NewLiteralExpression(1)
+		}
+	}
+	return nil
+}
+
+func divideLiteralExpression(dividend *LiteralExpression, divisor Expression) Expression {
+	switch d := divisor.(type) {
+	case *LiteralExpression:
+		value := dividend.value / d.value
+		if value*d.value == dividend.value {
+			return NewLiteralExpression(value)
+		}
+	}
+	return nil
+}
+
+func divideMultiplyExpression(dividend *MultiplyExpression, divisor Expression) Expression {
+	literal, inputs, other := unrollMultiplyExpressions(dividend)
+
+	switch d := divisor.(type) {
+	case *LiteralExpression:
+		if literal != nil {
+			value := literal.value / d.value
+			if value*d.value == literal.value {
+				return NewMultiplyExpression(inputs, other, NewLiteralExpression(value))
+			}
+		}
+	case *InputExpression:
+		found := false
+		for i := range inputs {
+			if inputs[i].index == d.index {
+				// this one cancels
+				inputs[i] = nil
+				found = true
+				break
+			}
+		}
+		if found {
+			return NewMultiplyExpression(literal, inputs, other)
+		}
 	}
 
 	return nil
 }
 
-func divideLiteralByInt(dividend LiteralExpression, divisor int) Expression {
-	// NOTE: We generally avoid doing things
-	value := dividend.value / divisor
-
-	if value*divisor == dividend.value {
-		return NewLiteralExpression(value)
-	} else {
-		return nil
-	}
-}
-
-func divideMultiplyByInt(dividend MultiplyExpression, divisor int) Expression {
-
-	lhsLiteral, lhsIsLiteral := dividend.lhs.(*LiteralExpression)
-	rhsLiteral, rhsIsLiteral := dividend.rhs.(*LiteralExpression)
-
-	if lhsIsLiteral {
-		lhs := divideExpressionByInt(lhsLiteral, divisor)
-		if lhs != nil {
-			return NewMultiplyExpression(lhs, dividend.rhs)
+func divideSum(dividend *AddExpression, divisor Expression) Expression {
+	switch d := divisor.(type) {
+	case *AddExpression:
+		if *dividend == *d {
+			return NewLiteralExpression(1)
 		}
 	}
-
-	if rhsIsLiteral {
-		rhs := divideExpressionByInt(rhsLiteral, divisor)
-		if rhs != nil {
-			return NewMultiplyExpression(dividend.lhs, rhs)
-		}
-	}
-
-	// If either side of the dividend is itself a MultiplyExpression, attempt
-	// to find a subexpression we can cleanly apply the divisor to
-	if lhsMultiply, lhsIsMultiply := dividend.lhs.(*MultiplyExpression); lhsIsMultiply {
-		if newLhs := divideMultiplyByInt(*lhsMultiply, divisor); newLhs != nil {
-			return NewMultiplyExpression(
-				newLhs,
-				dividend.Rhs(),
-			)
-		}
-	}
-
-	if rhsMultiply, rhsIsMultiply := dividend.rhs.(*MultiplyExpression); rhsIsMultiply {
-		if newRhs := divideMultiplyByInt(*rhsMultiply, divisor); newRhs != nil {
-			return NewMultiplyExpression(
-				dividend.Lhs(),
-				newRhs,
-			)
-		}
-	}
-
-	return nil
+	return NewDivideExpression(dividend, divisor)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

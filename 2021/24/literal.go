@@ -27,16 +27,24 @@ func (e *LiteralExpression) Range() Range {
 	return newContinuousRange(e.value, e.value, 1)
 }
 
-func (e *LiteralExpression) Simplify() Expression {
-	return e
-}
-
-func (e *LiteralExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+func (e *LiteralExpression) Simplify(inputs map[int]int) Expression {
 	return e
 }
 
 func (e *LiteralExpression) String() string {
 	return strconv.FormatInt(int64(e.value), 10)
+}
+
+func multiplyLiterals(literals ...*LiteralExpression) *LiteralExpression {
+	var result *LiteralExpression
+	for _, l := range literals {
+		if result == nil {
+			result = l
+		} else if l != nil {
+			result = NewLiteralExpression(result.value * l.value).(*LiteralExpression)
+		}
+	}
+	return result
 }
 
 func sumLiterals(literals ...*LiteralExpression) *LiteralExpression {

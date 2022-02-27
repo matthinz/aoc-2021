@@ -10,6 +10,7 @@ import (
 var realInput string
 
 func TestParseFirstLinesOfRealInput(t *testing.T) {
+	t.Skip()
 	const LineCount = 170
 	lines := strings.Split(realInput, "\n")
 	first := strings.Join(lines[0:LineCount], "\n")

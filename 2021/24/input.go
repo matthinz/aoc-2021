@@ -53,16 +53,12 @@ func (e *InputExpression) Range() Range {
 	return inputRange
 }
 
-func (e *InputExpression) Simplify() Expression {
-	return e
-}
-
-func (e *InputExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
+func (e *InputExpression) Simplify(inputs map[int]int) Expression {
 	value, ok := inputs[e.index]
-	if !ok {
-		return e
+	if ok {
+		return NewLiteralExpression(value)
 	}
-	return NewLiteralExpression(value)
+	return e
 }
 
 func (e *InputExpression) String() string {

@@ -35,7 +35,7 @@ func solveStep(expr Expression, knownInputs map[int]int, inputCount int, l *log.
 	for value := MaxInputValue; value >= MinInputValue; value-- {
 		nextInputs[maxIndex+1] = value
 
-		simplified := expr.SimplifyUsingPartialInputs(nextInputs)
+		simplified := expr.Simplify(nextInputs)
 		r := simplified.Range()
 
 		if !r.Includes(0) {

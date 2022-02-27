@@ -4,6 +4,21 @@ import (
 	"testing"
 )
 
+func TestNewAddExpression(t *testing.T) {
+	expr := NewAddExpression(
+		5,
+		[]*InputExpression{
+			NewInputExpression(7).(*InputExpression),
+			NewInputExpression(9).(*InputExpression),
+		},
+	)
+	expected := "(5 + (i7 + i9))"
+	actual := expr.String()
+	if actual != expected {
+		t.Errorf("Expected %s, got %s", expected, actual)
+	}
+}
+
 func TestAddExpressionEvaluate(t *testing.T) {
 	expr := NewAddExpression(NewLiteralExpression(5), NewLiteralExpression(10))
 	expected := 15
@@ -150,7 +165,7 @@ func TestAddExpressionSimplify(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewAddExpression(test.lhs, test.rhs)
-			actual := expr.Simplify()
+			actual := expr.Simplify(map[int]int{})
 			if actual == nil {
 				t.Fatal("Simplify() returned nil")
 			}

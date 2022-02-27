@@ -14,13 +14,17 @@ type multiplyRange struct {
 	cachedValues *[]int
 }
 
-func NewMultiplyExpression(lhs, rhs Expression) Expression {
+func NewMultiplyExpression(expressions ...interface{}) Expression {
+	b := newBinaryExpression(
+		'*',
+		NewMultiplyExpression,
+		expressions,
+	)
+	if b.rhs == nil {
+		return b.lhs
+	}
 	return &MultiplyExpression{
-		binaryExpression: binaryExpression{
-			lhs:      lhs,
-			rhs:      rhs,
-			operator: '*',
-		},
+		binaryExpression: b,
 	}
 }
 
@@ -103,112 +107,135 @@ func (e *MultiplyExpression) Range() Range {
 	return e.cachedRange
 }
 
-func (e *MultiplyExpression) Simplify() Expression {
-	if e.isSimplified {
-		return e
-	}
+func (e *MultiplyExpression) Simplify(inputs map[int]int) Expression {
+	return simplifyBinaryExpression(
+		&e.binaryExpression,
+		inputs,
+		func(lhs Expression, rhs Expression) Expression {
+			lhsRange, rhsRange := lhs.Range(), rhs.Range()
 
-	lhs := e.lhs.Simplify()
-	rhs := e.rhs.Simplify()
+			lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
+			rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
 
-	lhsRange := lhs.Range()
-	rhsRange := rhs.Range()
+			// if both ranges are single numbers, we are doing literal multiplication
+			if lhsIsSingleValue && rhsIsSingleValue {
+				return NewLiteralExpression(lhsSingleValue * rhsSingleValue)
+			}
 
-	lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
-	rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+			// if either range is just "0", we'll evaluate to 0
+			if lhsIsSingleValue && lhsSingleValue == 0 {
+				return zeroLiteral
+			}
 
-	// if both ranges are single numbers, we are doing literal multiplication
-	if lhsIsSingleValue && rhsIsSingleValue {
-		return NewLiteralExpression(lhsSingleValue * rhsSingleValue)
-	}
+			if rhsIsSingleValue && rhsSingleValue == 0 {
+				return zeroLiteral
+			}
 
-	// if either range is just "0", we'll evaluate to 0
-	if lhsIsSingleValue && lhsSingleValue == 0 {
-		return zeroLiteral
-	}
+			// if either range is just "1", we evaluate to the other
+			if lhsIsSingleValue && lhsSingleValue == 1 {
+				return rhs
+			}
 
-	if rhsIsSingleValue && rhsSingleValue == 0 {
-		return zeroLiteral
-	}
+			if rhsIsSingleValue && rhsSingleValue == 1 {
+				return lhs
+			}
 
-	// if either range is just "1", we evaluate to the other
-	if lhsIsSingleValue && lhsSingleValue == 1 {
-		return rhs
-	}
+			// For expressions like (i0 + 4) * 5, distribute the "5" into  so we get
+			// ((5*i0) + 20)
+			lhsSum, lhsIsSum := lhs.(*AddExpression)
+			rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
+			if lhsIsSum && rhsIsLiteral {
+				// Distribute literal to sum expression
+				expr := NewAddExpression(
+					NewMultiplyExpression(lhsSum.Lhs(), rhsLiteral),
+					NewMultiplyExpression(lhsSum.Rhs(), rhsLiteral),
+				)
+				return expr.Simplify(inputs)
+			}
 
-	if rhsIsSingleValue && rhsSingleValue == 1 {
-		return lhs
-	}
+			rhsSum, rhsIsSum := rhs.(*AddExpression)
+			lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
+			if rhsIsSum && lhsIsLiteral {
+				// Distribute literal to sum expression
+				expr := NewAddExpression(
+					NewMultiplyExpression(rhsSum.Lhs(), lhsLiteral),
+					NewMultiplyExpression(rhsSum.Rhs(), lhsLiteral),
+				)
+				return expr.Simplify(inputs)
+			}
 
-	// For expressions like (i0 + 4) * 5, distribute the "5" into  so we get
-	// ((5*i0) + 20)
-	lhsSum, lhsIsSum := lhs.(*AddExpression)
-	rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
-	if lhsIsSum && rhsIsLiteral {
-		// Distribute literal to sum expression
-		expr := NewAddExpression(
-			NewMultiplyExpression(lhsSum.Lhs(), rhsLiteral),
-			NewMultiplyExpression(lhsSum.Rhs(), rhsLiteral),
-		)
-		return expr.Simplify()
-	}
+			if lhsMultiply, lhsIsMultiply := lhs.(*MultiplyExpression); lhsIsMultiply && rhsIsSingleValue {
+				if lhsLiteral, lhsIsLiteral := lhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
+					expr := NewMultiplyExpression(
+						NewLiteralExpression(lhsLiteral.value*rhsSingleValue),
+						lhsMultiply.Rhs(),
+					)
+					return expr.Simplify(inputs)
+				}
+				if rhsLiteral, rhsIsLiteral := lhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
+					expr := NewMultiplyExpression(
+						lhsMultiply.Lhs(),
+						NewLiteralExpression(rhsLiteral.value*rhsSingleValue),
+					)
+					return expr.Simplify(inputs)
+				}
+			}
 
-	rhsSum, rhsIsSum := rhs.(*AddExpression)
-	lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
-	if rhsIsSum && lhsIsLiteral {
-		// Distribute literal to sum expression
-		expr := NewAddExpression(
-			NewMultiplyExpression(rhsSum.Lhs(), lhsLiteral),
-			NewMultiplyExpression(rhsSum.Rhs(), lhsLiteral),
-		)
-		return expr.Simplify()
-	}
-
-	if lhsMultiply, lhsIsMultiply := lhs.(*MultiplyExpression); lhsIsMultiply && rhsIsSingleValue {
-		if lhsLiteral, lhsIsLiteral := lhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
-			expr := NewMultiplyExpression(
-				NewLiteralExpression(lhsLiteral.value*rhsSingleValue),
-				lhsMultiply.Rhs(),
-			)
-			return expr.Simplify()
-		}
-		if rhsLiteral, rhsIsLiteral := lhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
-			expr := NewMultiplyExpression(
-				lhsMultiply.Lhs(),
-				NewLiteralExpression(rhsLiteral.value*rhsSingleValue),
-			)
-			return expr.Simplify()
-		}
-	}
-
-	if rhsMultiply, rhsIsMultiply := rhs.(*MultiplyExpression); rhsIsMultiply && lhsIsSingleValue {
-		if lhsLiteral, lhsIsLiteral := rhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
-			expr := NewMultiplyExpression(
-				NewLiteralExpression(lhsLiteral.value*lhsSingleValue),
-				rhsMultiply.Rhs(),
-			)
-			return expr.Simplify()
-		}
-		if rhsLiteral, rhsIsLiteral := rhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
-			expr := NewMultiplyExpression(
-				rhsMultiply.Lhs(),
-				NewLiteralExpression(rhsLiteral.value*lhsSingleValue),
-			)
-			return expr.Simplify()
-		}
-	}
-
-	expr := NewMultiplyExpression(lhs, rhs)
-	expr.(*MultiplyExpression).isSimplified = true
-
-	return expr
+			if rhsMultiply, rhsIsMultiply := rhs.(*MultiplyExpression); rhsIsMultiply && lhsIsSingleValue {
+				if lhsLiteral, lhsIsLiteral := rhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
+					expr := NewMultiplyExpression(
+						NewLiteralExpression(lhsLiteral.value*lhsSingleValue),
+						rhsMultiply.Rhs(),
+					)
+					return expr.Simplify(inputs)
+				}
+				if rhsLiteral, rhsIsLiteral := rhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
+					expr := NewMultiplyExpression(
+						rhsMultiply.Lhs(),
+						NewLiteralExpression(rhsLiteral.value*lhsSingleValue),
+					)
+					return expr.Simplify(inputs)
+				}
+			}
+			return NewMultiplyExpression(lhs, rhs)
+		},
+	)
 }
 
-func (e *MultiplyExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
-	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
-	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
-	expr := NewMultiplyExpression(lhs, rhs)
-	return expr.Simplify()
+// Given a set of expressions being multiplied together, recursively unrolls them into
+// up to 1 literal value, a list of referenced inputs, and up to 1 other expression
+func unrollMultiplyExpressions(expressions ...Expression) (*LiteralExpression, []*InputExpression, Expression) {
+	result := struct {
+		literal *LiteralExpression
+		inputs  []*InputExpression
+		other   Expression
+	}{}
+
+	for _, expr := range expressions {
+		switch e := expr.(type) {
+		case *LiteralExpression:
+			result.literal = multiplyLiterals(result.literal, e)
+		case *InputExpression:
+			result.inputs = append(result.inputs, e)
+		case *MultiplyExpression:
+			l, i, o := unrollMultiplyExpressions(e.Lhs(), e.Rhs())
+			result.literal = multiplyLiterals(result.literal, l)
+			result.inputs = append(result.inputs, i...)
+			if result.other == nil {
+				result.other = o
+			} else {
+				result.other = NewMultiplyExpression(result.other, o)
+			}
+		default:
+			if result.other == nil {
+				result.other = expr
+			} else {
+				result.other = NewMultiplyExpression(result.other, expr)
+			}
+		}
+	}
+
+	return result.literal, result.inputs, result.other
 }
 
 ////////////////////////////////////////////////////////////////////////////////

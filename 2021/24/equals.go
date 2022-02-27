@@ -8,13 +8,17 @@ type EqualsExpression struct {
 	binaryExpression
 }
 
-func NewEqualsExpression(lhs, rhs Expression) Expression {
+func NewEqualsExpression(expressions ...interface{}) Expression {
+	b := newBinaryExpression(
+		'=',
+		NewEqualsExpression,
+		expressions,
+	)
+	if b.rhs == nil {
+		return b.lhs
+	}
 	return &EqualsExpression{
-		binaryExpression: binaryExpression{
-			lhs:      lhs,
-			rhs:      rhs,
-			operator: '=',
-		},
+		binaryExpression: b,
 	}
 }
 
@@ -41,40 +45,29 @@ func (e *EqualsExpression) Range() Range {
 	return newContinuousRange(0, 1, 1)
 }
 
-func (e *EqualsExpression) Simplify() Expression {
-	if e.binaryExpression.isSimplified {
-		return e
-	}
+func (e *EqualsExpression) Simplify(inputs map[int]int) Expression {
+	return simplifyBinaryExpression(
+		&e.binaryExpression,
+		inputs,
+		func(lhs, rhs Expression) Expression {
+			lhsRange := lhs.Range()
+			rhsRange := rhs.Range()
 
-	lhs := e.lhs.Simplify()
-	rhs := e.rhs.Simplify()
+			context := fmt.Sprintf("simplify EqualsExpression: %s", e)
 
-	lhsRange := lhs.Range()
-	rhsRange := rhs.Range()
+			// If the ranges of each side of the comparison will never intersect,
+			// then we can always return "0" for this expression
+			if !RangesIntersect(lhsRange, rhsRange, context) {
+				return zeroLiteral
+			}
 
-	context := fmt.Sprintf("simplify EqualsExpression: %s", e)
+			if RangesAreEqual(lhsRange, rhsRange, context) {
+				return oneLiteral
+			}
 
-	// If the ranges of each side of the comparison will never intersect,
-	// then we can always return "0" for this expression
-	if !RangesIntersect(lhsRange, rhsRange, context) {
-		return zeroLiteral
-	}
-
-	if RangesAreEqual(lhsRange, rhsRange, context) {
-		return oneLiteral
-	}
-
-	expr := NewEqualsExpression(lhs, rhs)
-	expr.(*EqualsExpression).isSimplified = true
-
-	return expr
-}
-
-func (e *EqualsExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
-	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
-	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
-	expr := NewEqualsExpression(lhs, rhs)
-	return expr.Simplify()
+			return NewEqualsExpression(lhs, rhs)
+		},
+	)
 }
 
 func (e *EqualsExpression) String() string {

@@ -16,13 +16,17 @@ type sumRange struct {
 	cachedValues *[]int
 }
 
-func NewAddExpression(lhs, rhs Expression) Expression {
+func NewAddExpression(expressions ...interface{}) Expression {
+	b := newBinaryExpression(
+		'+',
+		NewAddExpression,
+		expressions,
+	)
+	if b.rhs == nil {
+		return b.lhs
+	}
 	return &AddExpression{
-		binaryExpression: binaryExpression{
-			lhs:      lhs,
-			rhs:      rhs,
-			operator: '+',
-		},
+		binaryExpression: b,
 	}
 }
 
@@ -104,92 +108,84 @@ func (e *AddExpression) Range() Range {
 	return e.cachedRange
 }
 
-func (e *AddExpression) Simplify() Expression {
-	if e.binaryExpression.isSimplified {
-		return e
-	}
+func (e *AddExpression) Simplify(inputs map[int]int) Expression {
+	return simplifyBinaryExpression(
+		&e.binaryExpression,
+		inputs,
+		func(lhs, rhs Expression) Expression {
+			literal, inputs, other := unrollAddExpressions(lhs, rhs)
 
-	lhs := e.lhs.Simplify()
-	rhs := e.rhs.Simplify()
+			if literal != nil && literal.value == 0 {
+				literal = nil
+			}
 
-	lhsLiteral, lhsInputs, lhsOther := unrollSumExpression(lhs)
-	rhsLiteral, rhsInputs, rhsOther := unrollSumExpression(rhs)
+			for _, expr := range combineInputs(inputs...) {
+				if other == nil {
+					other = expr
+				} else {
+					other = NewAddExpression(other, expr)
+				}
+			}
 
-	rawInputs := make([]*InputExpression, 0, len(lhsInputs)+len(rhsInputs))
-	rawInputs = append(rawInputs, lhsInputs...)
-	rawInputs = append(rawInputs, rhsInputs...)
+			if literal != nil && other != nil {
+				return NewAddExpression(other, literal)
+			} else if literal != nil {
+				return literal
+			} else if other != nil {
+				return other
+			} else {
+				return NewLiteralExpression(0)
+			}
+		},
+	)
+}
 
-	others := make([]Expression, 0)
-	others = append(others, lhsOther)
-	others = append(others, rhsOther)
-	others = append(others, combineInputs(rawInputs...)...)
+// Given a set of expressions being added together, recurses through them
+// to find up to 1 literal value, all input references, and all other expressions.
+func unrollAddExpressions(expressions ...Expression) (*LiteralExpression, []*InputExpression, Expression) {
+	result := struct {
+		literal *LiteralExpression
+		inputs  []*InputExpression
+		other   Expression
+	}{}
 
-	var newLhs Expression
-	for _, o := range others {
-		if newLhs == nil {
-			newLhs = o
-		} else if o != nil {
-			newLhs = NewAddExpression(newLhs, o)
+	for _, expr := range expressions {
+
+		if expr == nil {
+			continue
+		}
+
+		if literal, isLiteral := expr.(*LiteralExpression); isLiteral {
+			result.literal = sumLiterals(result.literal, literal)
+			continue
+		}
+
+		if input, isInput := expr.(*InputExpression); isInput {
+			result.inputs = append(result.inputs, input)
+			continue
+		}
+
+		sum, isSum := expr.(*AddExpression)
+		if !isSum {
+			if result.other == nil {
+				result.other = expr
+			} else {
+				result.other = NewAddExpression(result.other, expr)
+			}
+			continue
+		}
+
+		literal, inputs, other := unrollAddExpressions(sum.Lhs(), sum.Rhs())
+		result.literal = sumLiterals(result.literal, literal)
+		result.inputs = append(result.inputs, inputs...)
+		if result.other == nil {
+			result.other = other
+		} else if other != nil {
+			result.other = NewAddExpression(result.other, other)
 		}
 	}
 
-	newRhs := sumLiterals(lhsLiteral, rhsLiteral)
-
-	if newLhs != nil && newRhs != nil {
-		expr := NewAddExpression(newLhs, newRhs)
-		expr.(*AddExpression).binaryExpression.isSimplified = true
-		return expr
-	} else if newLhs != nil {
-		return newLhs
-	} else if newRhs != nil {
-		return newRhs
-	} else {
-		return NewLiteralExpression(0)
-	}
-}
-
-func (e *AddExpression) SimplifyUsingPartialInputs(inputs map[int]int) Expression {
-	lhs := e.Lhs().SimplifyUsingPartialInputs(inputs)
-	rhs := e.Rhs().SimplifyUsingPartialInputs(inputs)
-	expr := NewAddExpression(lhs, rhs)
-	return expr.Simplify()
-}
-
-// given an expression, attempts to return literal and non-literal parts that can be added together
-func unrollSumExpression(expr Expression) (*LiteralExpression, []*InputExpression, Expression) {
-
-	if literal, isLiteral := expr.(*LiteralExpression); isLiteral {
-		return literal, nil, nil
-	}
-
-	if input, isInput := expr.(*InputExpression); isInput {
-		return nil, []*InputExpression{input}, nil
-	}
-
-	sum, isSum := expr.(*AddExpression)
-	if !isSum {
-		return nil, []*InputExpression{}, expr
-	}
-
-	lhsLiteral, lhsInputs, lhsOther := unrollSumExpression(sum.Lhs())
-	rhsLiteral, rhsInputs, rhsOther := unrollSumExpression(sum.Rhs())
-
-	literal := sumLiterals(lhsLiteral, rhsLiteral)
-
-	inputs := make([]*InputExpression, 0, len(lhsInputs)+len(rhsInputs))
-	inputs = append(inputs, lhsInputs...)
-	inputs = append(inputs, rhsInputs...)
-
-	var other Expression
-	if lhsOther != nil && rhsOther != nil {
-		other = NewAddExpression(lhsOther, rhsOther)
-	} else if lhsOther != nil {
-		other = lhsOther
-	} else if rhsOther != nil {
-		other = rhsOther
-	}
-
-	return literal, inputs, other
+	return result.literal, result.inputs, result.other
 }
 
 func tryCombineSummedInputs(expressions []Expression) []Expression {

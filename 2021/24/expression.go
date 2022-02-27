@@ -15,8 +15,11 @@ type Expression interface {
 
 	// Returns the range of output values for this expression
 	Range() Range
-	Simplify() Expression
-	SimplifyUsingPartialInputs(inputs map[int]int) Expression
+
+	// Given a set of known inputs, attempts to simplify this Expression.
+	// Returns the simplified version.
+	Simplify(inputs map[int]int) Expression
+
 	String() string
 }
 
@@ -34,8 +37,8 @@ type binaryExpression struct {
 
 	cachedRange Range
 
-	// Whether this expression has been simplified already.
-	isSimplified bool
+	// A cached normalized version of this expression
+	normalized Expression
 }
 
 func (e *binaryExpression) Lhs() Expression {
@@ -47,7 +50,124 @@ func (e *binaryExpression) Rhs() Expression {
 }
 
 func (e *binaryExpression) String() string {
-	return fmt.Sprintf("(%s %s %s)", e.lhs.String(), string(e.operator), e.rhs.String())
+	var lhs, rhs string
+
+	if e.lhs == nil {
+		lhs = "<nil>"
+	} else {
+		lhs = e.lhs.String()
+	}
+
+	if e.rhs == nil {
+		rhs = "<nil>"
+	} else {
+		rhs = e.rhs.String()
+	}
+
+	return fmt.Sprintf("(%s %s %s)", lhs, string(e.operator), rhs)
+}
+
+func newBinaryExpression(
+	operator rune,
+	factory func(expressions ...interface{}) Expression,
+	expressions []interface{},
+) binaryExpression {
+	var result = binaryExpression{
+		operator: operator,
+		lhs:      nil,
+		rhs:      nil,
+	}
+
+	for i := range expressions {
+		if expressions[i] == nil {
+			continue
+		}
+
+		var expr Expression
+
+		// XXX: This is presumably faster than reflection?
+		switch value := expressions[i].(type) {
+		case []*AddExpression:
+			for j := range value {
+				if expr == nil {
+					expr = value[j]
+				} else if value[j] != nil {
+					expr = factory(expr, value[j])
+				}
+			}
+		case []*DivideExpression:
+			for j := range value {
+				if expr == nil {
+					expr = value[j]
+				} else if value[j] != nil {
+					expr = factory(expr, value[j])
+				}
+			}
+		case []*InputExpression:
+			for j := range value {
+				if expr == nil {
+					expr = value[j]
+				} else if value[j] != nil {
+					expr = factory(expr, value[j])
+				}
+			}
+		case []*LiteralExpression:
+			for j := range value {
+				if expr == nil {
+					expr = value[j]
+				} else if value[j] != nil {
+					expr = factory(expr, value[j])
+				}
+			}
+		case []*ModuloExpression:
+			for j := range value {
+				if expr == nil {
+					expr = value[j]
+				} else if value[j] != nil {
+					expr = factory(expr, value[j])
+				}
+			}
+		case []*MultiplyExpression:
+			for j := range value {
+				if expr == nil {
+					expr = value[j]
+				} else if value[j] != nil {
+					expr = factory(expr, value[j])
+				}
+			}
+		case []Expression:
+			for j := range value {
+				if expr == nil {
+					expr = value[j]
+				} else if value[j] != nil {
+					expr = factory(expr, value[j])
+				}
+			}
+		case int:
+			expr = NewLiteralExpression(value)
+		default:
+			expr = expressions[i].(Expression)
+		}
+
+		if expr == nil {
+			continue
+		}
+
+		if result.lhs == nil {
+			result.lhs = expr
+		} else if result.rhs == nil {
+			result.rhs = expr
+		} else {
+			newLhs := factory(result.lhs, result.rhs)
+			result = binaryExpression{
+				operator: operator,
+				lhs:      newLhs,
+				rhs:      expr,
+			}
+		}
+	}
+
+	return result
 }
 
 func evaluateBinaryExpression(e BinaryExpression, op func(lhs, rhs int) (int, error)) (int, error) {
@@ -62,4 +182,36 @@ func evaluateBinaryExpression(e BinaryExpression, op func(lhs, rhs int) (int, er
 	}
 
 	return op(lhsValue, rhsValue)
+}
+
+func simplifyBinaryExpression(
+	e *binaryExpression,
+	inputs map[int]int,
+	simplifier func(lhs, rhs Expression) Expression,
+) Expression {
+	if len(inputs) == 0 && e.normalized != nil {
+		// Simplifying with no inputs is the same as normalizing
+		return e.normalized
+	}
+
+	ogLhs := e.Lhs()
+	if ogLhs == nil {
+		panic(fmt.Sprintf("Lhs() returned nil on %v", e))
+	}
+
+	ogRhs := e.Rhs()
+	if ogRhs == nil {
+		panic(fmt.Sprintf("Rhs() returned nil on %v", e))
+	}
+
+	simplifiedLhs := ogLhs.Simplify(inputs)
+	simplifiedRhs := ogRhs.Simplify(inputs)
+
+	simplified := simplifier(simplifiedLhs, simplifiedRhs)
+
+	if len(inputs) == 0 {
+		e.normalized = simplified
+	}
+
+	return simplified
 }
