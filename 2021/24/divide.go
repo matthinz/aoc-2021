@@ -173,7 +173,6 @@ func simplifyDivisionOfLiteralExpression(dividend *LiteralExpression, divisor Ex
 			return dividend
 		}
 		value := dividend.value / divisor.value
-		fmt.Printf("%d / %d = %d\n", dividend.value, divisor.value, value)
 		if value*divisor.value == dividend.value {
 			return NewLiteralExpression(value)
 		}

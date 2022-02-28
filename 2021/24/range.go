@@ -1,7 +1,6 @@
 package d24
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -165,10 +164,10 @@ func buildBinaryExpressionRangeValues(
 
 	duration := time.Now().Sub(started)
 	if duration.Seconds() > 1 {
-		fmt.Printf("buildBinaryExpressionRangeValues: %v (%d steps, %d unique values)\n", duration, steps, len(uniqueValues))
-		fmt.Printf("\t%s\n", context)
-		fmt.Printf("\tlhs: %s\n", lhs.String())
-		fmt.Printf("\trhs: %s\n", rhs.String())
+		// fmt.Printf("buildBinaryExpressionRangeValues: %v (%d steps, %d unique values)\n", duration, steps, len(uniqueValues))
+		// fmt.Printf("\t%s\n", context)
+		// fmt.Printf("\tlhs: %s\n", lhs.String())
+		// fmt.Printf("\trhs: %s\n", rhs.String())
 	}
 
 	return &uniqueValues

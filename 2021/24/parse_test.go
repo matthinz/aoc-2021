@@ -18,7 +18,7 @@ func TestParseFirstLinesOfRealInput(t *testing.T) {
 }
 
 func TestParseRealInputFindsAllInputsInZ(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	r := parseInput(strings.NewReader(realInput))
 	inputsFound := make(map[int]int)
 	r.z.Accept(func(e Expression) {

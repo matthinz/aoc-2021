@@ -28,6 +28,10 @@ type BinaryExpression interface {
 	Rhs() Expression
 }
 
+type Normalizer interface {
+	MarkNormalized(expr Expression)
+}
+
 // binaryExpression is an embeddable Expression comprised of two expressions,
 // (left- and right-hand sides) and an operator.
 type binaryExpression struct {
@@ -43,6 +47,10 @@ type binaryExpression struct {
 
 func (e *binaryExpression) Lhs() Expression {
 	return e.lhs
+}
+
+func (e *binaryExpression) MarkNormalized(expr Expression) {
+	e.normalized = expr
 }
 
 func (e *binaryExpression) Rhs() Expression {
@@ -229,6 +237,11 @@ func simplifyBinaryExpression(
 
 	if len(inputs) == 0 {
 		e.normalized = simplified
+
+		// Tell our simplified expression it is the normalized version of itself
+		if n, isNormalizer := simplified.(Normalizer); isNormalizer {
+			n.MarkNormalized(simplified)
+		}
 	}
 
 	return simplified
