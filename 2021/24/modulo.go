@@ -2,7 +2,6 @@ package d24
 
 import (
 	"fmt"
-	"time"
 )
 
 // Things about modulus
@@ -62,7 +61,6 @@ func (e *ModuloExpression) Evaluate() (int, error) {
 }
 
 func (e *ModuloExpression) Range() Range {
-	start := time.Now()
 
 	if e.cachedRange != nil {
 		return e.cachedRange
@@ -112,10 +110,6 @@ func (e *ModuloExpression) Range() Range {
 	}
 
 	e.cachedRange = newRangeFromInts(values)
-
-	if time.Now().Sub(start).Seconds() > 1 {
-		fmt.Printf("%s -> %s\n", e.String(), e.cachedRange)
-	}
 
 	return e.cachedRange
 }
