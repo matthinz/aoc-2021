@@ -133,11 +133,23 @@ func tryCombineRanges(a, b Range) Range {
 
 		aIntersectsOrAdjacentLeft := aContinuous.min < bContinuous.min && aContinuous.max >= (bContinuous.min-bContinuous.step)
 		if aIntersectsOrAdjacentLeft {
+
+			ok := (bContinuous.max-aContinuous.min)%aContinuous.step == 0
+			if !ok {
+				return nil
+			}
+
 			return newContinuousRange(aContinuous.min, bContinuous.max, aContinuous.step)
 		}
 
 		bIntersectsOrAdjacentLeft := bContinuous.min < aContinuous.min && bContinuous.max >= (aContinuous.min-aContinuous.step)
 		if bIntersectsOrAdjacentLeft {
+
+			ok := (aContinuous.max-bContinuous.min)%bContinuous.step == 0
+			if !ok {
+				return nil
+			}
+
 			return newContinuousRange(bContinuous.min, aContinuous.max, bContinuous.step)
 		}
 	}

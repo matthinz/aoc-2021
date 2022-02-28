@@ -1,6 +1,7 @@
 package d24
 
 import (
+	"sort"
 	"time"
 )
 
@@ -13,6 +14,52 @@ type Range interface {
 	// Returns a function that, when executed, returns the next value in the
 	// range along with a boolean indicating whether the call succeeded.
 	Values(context string) func() (int, bool)
+}
+
+// Assembles a continuousRange (or a compoundRange of multiple continuous
+// ranges) from a list of ints.
+func newRangeFromInts(values []int) Range {
+	if len(values) == 0 {
+		return EmptyRange
+	}
+
+	sort.Ints(values)
+
+	step := 0
+	start := values[0]
+	prev := start
+
+	var ranges []Range
+
+	for i := 1; i < len(values); i++ {
+		if values[i] == prev {
+			continue
+		}
+
+		if step == 0 {
+			step = values[i] - prev
+		} else if values[i] != prev+step {
+			// This is a new range
+			ranges = append(ranges, newContinuousRange(start, prev, step))
+			start = values[i]
+			step = 0
+		}
+
+		prev = values[i]
+	}
+
+	if step == 0 {
+		// have an incomplete range
+		ranges = append(ranges, newContinuousRange(start, prev, (start-prev)+1))
+	} else if prev != start {
+		ranges = append(ranges, newContinuousRange(start, prev, step))
+	}
+
+	if len(ranges) == 1 {
+		return ranges[0]
+	} else {
+		return newCompoundRange(ranges...)
+	}
 }
 
 // Reads all values in the given range into a slice and returns it.

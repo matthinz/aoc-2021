@@ -2,9 +2,7 @@ package d24
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
-	"strings"
+	"time"
 )
 
 // Things about modulus
@@ -29,12 +27,6 @@ import (
 
 type ModuloExpression struct {
 	binaryExpression
-}
-
-type moduloRange struct {
-	lhs          Range
-	rhs          Range
-	cachedValues *[]int
 }
 
 func NewModuloExpression(expressions ...interface{}) Expression {
@@ -70,31 +62,59 @@ func (e *ModuloExpression) Evaluate() (int, error) {
 }
 
 func (e *ModuloExpression) Range() Range {
-	if e.cachedRange == nil {
+	start := time.Now()
 
-		lhsRange := e.Lhs().Range()
-		rhsRange := e.Rhs().Range()
+	if e.cachedRange != nil {
+		return e.cachedRange
+	}
 
-		lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
-		rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+	lhsRange := e.Lhs().Range()
+	rhsRange := e.Rhs().Range()
 
-		if lhsIsContinuous && rhsIsContinuous {
-			if rhsContinuous.min == rhsContinuous.max {
-				if lhsContinuous.step == rhsContinuous.min {
-					// When the step of the lhs range == value of rhs range, then
-					// then the lhs range is reduced to a single value.
-					value := lhsContinuous.min % rhsContinuous.min
-					e.cachedRange = newContinuousRange(value, value, 1)
-				}
+	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
+	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+
+	if lhsIsContinuous && rhsIsContinuous {
+		if rhsContinuous.min == rhsContinuous.max {
+			if lhsContinuous.step == rhsContinuous.min {
+				// When the step of the lhs range == value of rhs range, then
+				// then the lhs range is reduced to a single value.
+				value := lhsContinuous.min % rhsContinuous.min
+				e.cachedRange = newContinuousRange(value, value, 1)
+				return e.cachedRange
+			}
+		}
+	}
+
+	uniqueValues := make(map[int]int)
+
+	nextRhsValue := e.Rhs().Range().Values("ModuloExpression.Range")
+	for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
+		values := make(map[int]int)
+		nextLhsValue := e.Lhs().Range().Values("ModuloExpression.Range")
+
+		for lhsValue, ok := nextLhsValue(); ok; lhsValue, ok = nextLhsValue() {
+			value := lhsValue % rhsValue
+			values[value]++
+			if values[0] >= 2 {
+				break
 			}
 		}
 
-		if e.cachedRange == nil {
-			e.cachedRange = &moduloRange{
-				lhs: lhsRange,
-				rhs: rhsRange,
-			}
+		for value := range values {
+			uniqueValues[value]++
 		}
+	}
+
+	values := make([]int, 0, len(uniqueValues))
+	for value := range uniqueValues {
+		values = append(values, value)
+	}
+
+	e.cachedRange = newRangeFromInts(values)
+
+	if time.Now().Sub(start).Seconds() > 1 {
+		fmt.Printf("%s -> %s\n", e.String(), e.cachedRange)
 	}
 
 	return e.cachedRange
@@ -131,104 +151,4 @@ func (e *ModuloExpression) Simplify(inputs map[int]int) Expression {
 			return NewModuloExpression(lhs, rhs)
 		},
 	)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// moduloRange
-
-func (r *moduloRange) Includes(value int) bool {
-	nextValue := r.Values(fmt.Sprintf("%s includes %d", r, value))
-	for v, ok := nextValue(); ok; v, ok = nextValue() {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *moduloRange) Values(context string) func() (int, bool) {
-
-	pos := 0
-
-	return func() (int, bool) {
-
-		if r.cachedValues == nil {
-
-			uniqueValues := make([]int, 0)
-
-			nextRhsValue := r.rhs.Values(context)
-			for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
-				values := make(map[int]int)
-				nextLhsValue := r.lhs.Values(context)
-
-				for lhsValue, ok := nextLhsValue(); ok; lhsValue, ok = nextLhsValue() {
-					value := lhsValue % rhsValue
-					values[value]++
-
-					if values[0] >= 2 {
-						break
-					}
-				}
-
-				for value := range values {
-					uniqueValues = append(uniqueValues, value)
-				}
-			}
-			r.cachedValues = &uniqueValues
-		}
-
-		if pos >= len(*r.cachedValues) {
-			return 0, false
-		}
-
-		value := (*r.cachedValues)[pos]
-		pos++
-		return value, true
-	}
-}
-
-func (r *moduloRange) String() string {
-	const maxLength = 10
-	values := make(map[int]bool)
-
-	nextValue := r.Values("moduloRange.String()")
-	for value, ok := nextValue(); ok; value, ok = nextValue() {
-		values[value] = true
-		if len(values) > maxLength {
-			return fmt.Sprintf("<%s %% %s>", r.lhs.String(), r.rhs.String())
-		}
-	}
-
-	distinctValues := make([]int, 0)
-	for value := range values {
-		distinctValues = append(distinctValues, value)
-	}
-
-	sort.Ints(distinctValues)
-
-	stringValues := make([]string, 0)
-	for value := range distinctValues {
-		stringValues = append(stringValues, strconv.FormatInt(int64(value), 10))
-	}
-
-	return strings.Join(stringValues, ",")
-}
-
-func makeContinuous(a, b, c Range) (*continuousRange, *continuousRange, *continuousRange) {
-	var outA, outB, outC *continuousRange
-
-	if a != nil {
-		outA = a.(*continuousRange)
-	}
-
-	if b != nil {
-		outB = b.(*continuousRange)
-	}
-
-	if c != nil {
-		outC = c.(*continuousRange)
-	}
-
-	return outA, outB, outC
-
 }

@@ -39,17 +39,18 @@ func TestModuloExpressionEvaluate(t *testing.T) {
 
 func TestModuloExpressionRange(t *testing.T) {
 	type rangeTest struct {
-		name     string
-		lhs      Expression
-		rhs      Expression
-		expected []int
+		name           string
+		lhs            Expression
+		rhs            Expression
+		expected       []int
+		expectedString string
 	}
 	tests := []rangeTest{
 		{
 			name:     "TwoInputs",
 			lhs:      NewInputExpression(0),
 			rhs:      NewInputExpression(1),
-			expected: []int{0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 8},
+			expected: []int{0, 1, 2, 3, 4, 5, 6, 7, 8},
 		},
 		{
 			name:     "TwoLiterals",
@@ -67,7 +68,7 @@ func TestModuloExpressionRange(t *testing.T) {
 			name:     "NegativeLiteralLhsRhsInput",
 			lhs:      NewLiteralExpression(-5),
 			rhs:      NewInputExpression(0),
-			expected: []int{-5, -5, -5, -5, -2, -1, -1, 0, 0},
+			expected: []int{-5, -2, -1, 0},
 		},
 		{
 			name:     "LhsInputNegativeLiteralRhs",
@@ -79,7 +80,7 @@ func TestModuloExpressionRange(t *testing.T) {
 			name:     "LargeLhsLargeRhs",
 			lhs:      NewLiteralExpression(1234567890),
 			rhs:      NewMultiplyExpression(NewLiteralExpression(251), NewInputExpression(0)),
-			expected: []int{43, 294, 294, 294, 294, 545, 1298, 1298, 1800},
+			expected: []int{43, 294, 545, 1298, 1800},
 		},
 		{
 			name:     "NegativeInputLhsRhsLiteral",
@@ -88,10 +89,11 @@ func TestModuloExpressionRange(t *testing.T) {
 			expected: []int{-2, 0},
 		},
 		{
-			name:     "LargeLhsSmallRhs",
-			lhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(100000)),
-			rhs:      NewLiteralExpression(26),
-			expected: []int{2, 4, 6, 8, 10, 12, 16, 20, 24},
+			name:           "LargeLhsSmallRhs",
+			lhs:            NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(100000)),
+			rhs:            NewLiteralExpression(26),
+			expected:       []int{2, 4, 6, 8, 10, 12, 16, 20, 24},
+			expectedString: "<<2..12 step 2>,<16..24 step 4>>",
 		},
 		{
 			name:     "RhsEqualToLhsStep",
@@ -105,20 +107,29 @@ func TestModuloExpressionRange(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewModuloExpression(test.lhs, test.rhs)
 
-			actual := GetAllValuesOfRange(expr.Range(), test.name)
+			if test.expectedString == "" {
 
-			if len(actual) != len(test.expected) {
-				t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
-			}
+				actual := GetAllValuesOfRange(expr.Range(), test.name)
 
-			// NOTE: The order in which we get values is not stable, so we have to sort to compare
-			sort.Ints(actual)
-
-			for i := range test.expected {
-				if actual[i] != test.expected[i] {
+				if len(actual) != len(test.expected) {
 					t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
 				}
+
+				// NOTE: The order in which we get values is not stable, so we have to sort to compare
+				sort.Ints(actual)
+
+				for i := range test.expected {
+					if actual[i] != test.expected[i] {
+						t.Fatalf("%s: expected range %v (%d) but got %v (%d)", expr.String(), test.expected, len(test.expected), actual, len(actual))
+					}
+				}
+			} else {
+				actual := expr.Range().String()
+				if actual != test.expectedString {
+					t.Errorf("%s: expected %s but got %s", expr.String(), test.expectedString, actual)
+				}
 			}
+
 		})
 	}
 }

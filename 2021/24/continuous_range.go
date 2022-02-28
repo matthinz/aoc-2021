@@ -1,6 +1,8 @@
 package d24
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type continuousRange struct {
 	min, max int
