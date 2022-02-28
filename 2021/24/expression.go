@@ -24,7 +24,9 @@ type Expression interface {
 }
 
 type BinaryExpression interface {
+	Expression
 	Lhs() Expression
+	Operator() string
 	Rhs() Expression
 }
 
@@ -41,6 +43,14 @@ type binaryExpression struct {
 
 	cachedRange Range
 
+	// The indices of any inputs referenced by this expression or its sub-expressions
+	referencedInputs *[]int
+
+	cachedEvaluation *struct {
+		value int
+		err   error
+	}
+
 	// A cached normalized version of this expression
 	normalized Expression
 }
@@ -55,6 +65,37 @@ func (e *binaryExpression) MarkNormalized(expr Expression) {
 
 func (e *binaryExpression) Rhs() Expression {
 	return e.rhs
+}
+
+func (e *binaryExpression) Operator() string {
+	return string(e.operator)
+}
+
+func (e *binaryExpression) ReferencedInputs() []int {
+	if e.referencedInputs != nil {
+		return *e.referencedInputs
+	}
+
+	inputs := make(map[int]bool)
+	e.Lhs().Accept(func(e Expression) {
+		if input, isInput := e.(*InputExpression); isInput {
+			inputs[input.index] = true
+		}
+	})
+	e.Rhs().Accept(func(e Expression) {
+		if input, isInput := e.(*InputExpression); isInput {
+			inputs[input.index] = true
+		}
+	})
+
+	result := make([]int, 0, len(inputs))
+	for index := range inputs {
+		result = append(result, index)
+	}
+
+	e.referencedInputs = &result
+
+	return result
 }
 
 func (e *binaryExpression) String() string {
@@ -197,6 +238,30 @@ func newBinaryExpression(
 }
 
 func evaluateBinaryExpression(e BinaryExpression, op func(lhs, rhs int) (int, error)) (int, error) {
+	switch x := e.(type) {
+	case *AddExpression:
+		if x.binaryExpression.cachedEvaluation != nil {
+			return x.binaryExpression.cachedEvaluation.value, x.binaryExpression.cachedEvaluation.err
+		}
+	case *DivideExpression:
+		if x.binaryExpression.cachedEvaluation != nil {
+			return x.binaryExpression.cachedEvaluation.value, x.binaryExpression.cachedEvaluation.err
+		}
+	case *EqualsExpression:
+		if x.binaryExpression.cachedEvaluation != nil {
+			return x.binaryExpression.cachedEvaluation.value, x.binaryExpression.cachedEvaluation.err
+		}
+	case *ModuloExpression:
+		if x.binaryExpression.cachedEvaluation != nil {
+			return x.binaryExpression.cachedEvaluation.value, x.binaryExpression.cachedEvaluation.err
+		}
+	case *MultiplyExpression:
+		if x.binaryExpression.cachedEvaluation != nil {
+			return x.binaryExpression.cachedEvaluation.value, x.binaryExpression.cachedEvaluation.err
+		}
+
+	}
+
 	lhsValue, lhsError := e.Lhs().Evaluate()
 	if lhsError != nil {
 		return 0, lhsError
@@ -207,7 +272,38 @@ func evaluateBinaryExpression(e BinaryExpression, op func(lhs, rhs int) (int, er
 		return 0, rhsError
 	}
 
-	return op(lhsValue, rhsValue)
+	result, err := op(lhsValue, rhsValue)
+
+	switch x := e.(type) {
+	case *AddExpression:
+		x.binaryExpression.cachedEvaluation = &struct {
+			value int
+			err   error
+		}{result, err}
+	case *DivideExpression:
+		x.binaryExpression.cachedEvaluation = &struct {
+			value int
+			err   error
+		}{result, err}
+	case *EqualsExpression:
+		x.binaryExpression.cachedEvaluation = &struct {
+			value int
+			err   error
+		}{result, err}
+	case *ModuloExpression:
+		x.binaryExpression.cachedEvaluation = &struct {
+			value int
+			err   error
+		}{result, err}
+	case *MultiplyExpression:
+		x.binaryExpression.cachedEvaluation = &struct {
+			value int
+			err   error
+		}{result, err}
+	}
+
+	return result, err
+
 }
 
 func simplifyBinaryExpression(
@@ -215,9 +311,27 @@ func simplifyBinaryExpression(
 	inputs map[int]int,
 	simplifier func(lhs, rhs Expression) Expression,
 ) Expression {
-	if len(inputs) == 0 && e.normalized != nil {
-		// Simplifying with no inputs is the same as normalizing
-		return e.normalized
+	if e.normalized != nil {
+
+		if len(inputs) == 0 {
+			// Simplifying with no inputs is the same as normalizing
+			return e.normalized
+		}
+
+		// If _none_ of the referenced inputs on this expression are actually contained
+		// in the known inputs map, we can just use the normalized version
+		anyIncomingInputsReferenced := false
+		for index := range e.ReferencedInputs() {
+			_, isReferenced := inputs[index]
+			if isReferenced {
+				anyIncomingInputsReferenced = true
+				break
+			}
+		}
+
+		if !anyIncomingInputsReferenced {
+			return e.normalized
+		}
 	}
 
 	ogLhs := e.Lhs()
