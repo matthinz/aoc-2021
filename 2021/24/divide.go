@@ -96,6 +96,22 @@ func (e *DivideExpression) Simplify(inputs map[int]int) Expression {
 		inputs,
 		func(dividend, divisor Expression) Expression {
 
+			dividendRange := dividend.Range()
+			if dividendRange, isContinuous := dividendRange.(*continuousRange); isContinuous {
+				if dividendRange.min == 0 && dividendRange.max == 0 {
+					// 0 / anything = 0
+					return NewLiteralExpression(0)
+				}
+			}
+
+			divisorRange := divisor.Range()
+			if divisorRange, isContinuous := divisorRange.(*continuousRange); isContinuous {
+				if divisorRange.min == 1 && divisorRange.max == 1 {
+					// anything / 1 = anything
+					return dividend
+				}
+			}
+
 			var simplified Expression
 
 			switch expr := dividend.(type) {
