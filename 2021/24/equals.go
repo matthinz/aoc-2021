@@ -50,19 +50,20 @@ func (e *EqualsExpression) Simplify(inputs map[int]int) Expression {
 		&e.binaryExpression,
 		inputs,
 		func(lhs, rhs Expression) Expression {
-			lhsRange := lhs.Range()
-			rhsRange := rhs.Range()
 
-			context := fmt.Sprintf("simplify EqualsExpression: %s", e)
-
-			// If the ranges of each side of the comparison will never intersect,
-			// then we can always return "0" for this expression
-			if !RangesIntersect(lhsRange, rhsRange, context) {
-				return zeroLiteral
+			if lhs == rhs {
+				return NewLiteralExpression(1)
 			}
 
-			if RangesAreEqual(lhsRange, rhsRange, context) {
-				return oneLiteral
+			lhsValue, lhsError := lhs.Evaluate()
+			rhsValue, rhsError := rhs.Evaluate()
+
+			if lhsError == nil && rhsError == nil {
+				if lhsValue == rhsValue {
+					return NewLiteralExpression(1)
+				} else {
+					return NewLiteralExpression(0)
+				}
 			}
 
 			return NewEqualsExpression(lhs, rhs)
