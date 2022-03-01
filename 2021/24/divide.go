@@ -144,11 +144,25 @@ func simplifyDivisionOfAddExpression(dividend *AddExpression, divisor Expression
 			return NewLiteralExpression(1)
 		}
 	}
-	result := NewAddExpression(
-		NewDivideExpression(dividend.Lhs(), divisor).Simplify(inputs),
-		NewDivideExpression(dividend.Rhs(), divisor).Simplify(inputs),
-	)
-	return result
+
+	potentialNewLhs := NewDivideExpression(dividend.Lhs(), divisor)
+	newLhs := potentialNewLhs.Simplify(inputs)
+
+	potentialNewRhs := NewDivideExpression(dividend.Rhs(), divisor)
+	newRhs := potentialNewRhs.Simplify(inputs)
+
+	// If both simplifications got rid of the divide expression, consider this
+	// "safe" if either one is still a divide expression, then move the divide
+	// expression outside
+	_, newLhsIsDivide := newLhs.(*DivideExpression)
+	_, newRhsIsDivide := newRhs.(*DivideExpression)
+
+	if newLhsIsDivide || newRhsIsDivide {
+		// Abort this simplification -- we risk losing precision
+		return NewDivideExpression(dividend, divisor)
+	}
+
+	return NewAddExpression(newLhs, newRhs)
 }
 
 func simplifyDivisionOfInputExpression(dividend *InputExpression, divisor Expression, inputs map[int]int) Expression {

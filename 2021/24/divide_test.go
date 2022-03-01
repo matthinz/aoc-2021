@@ -96,20 +96,28 @@ func TestDivideExpressionSimplify(t *testing.T) {
 			name: "DistributeToAddition",
 			lhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(15)),
 			rhs:  NewLiteralExpression(3),
-			// We want (i0/3) + 5
-			expected: NewAddExpression(
-				NewDivideExpression(
+			// We want (i0 + 15) / 3
+			expected: NewDivideExpression(
+				NewAddExpression(
 					NewInputExpression(0),
-					NewLiteralExpression(3),
+					15,
 				),
-				NewLiteralExpression(5),
+				NewLiteralExpression(3),
 			),
 		},
 		{
-			name:     "DistributeToAdditionAvoidsIntegerDivisionWeirdness",
-			lhs:      NewAddExpression(NewInputExpression(0), NewLiteralExpression(16)),
-			rhs:      NewLiteralExpression(3),
-			expected: NewAddExpression(NewDivideExpression(NewInputExpression(0), 3), NewDivideExpression(16, 3)),
+			name: "DistributeToAdditionAvoidsIntegerDivisionWeirdness",
+			// i0 + 16
+			lhs: NewAddExpression(NewInputExpression(0), NewLiteralExpression(16)),
+			// 3
+			rhs: NewLiteralExpression(3),
+			expected: NewDivideExpression(
+				NewAddExpression(
+					NewInputExpression(0),
+					16,
+				),
+				3,
+			),
 		},
 		{
 			name:     "DontReduceInputs",
@@ -145,23 +153,24 @@ func TestDivideExpressionSimplify(t *testing.T) {
 		},
 		{
 			name: "DistributeIntoBigGrossThing",
+			// i0 + ((i1 == 7 ? 1 : 0) * (i2 * 100))
 			lhs: NewAddExpression(
 				NewInputExpression(0), // Distributing here would potentially lose precision
 				NewMultiplyExpression(
-					NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
-					NewMultiplyExpression(NewInputExpression(2), NewLiteralExpression(100)),
+					NewEqualsExpression(NewInputExpression(1), 7),
+					NewMultiplyExpression(NewInputExpression(2), 100),
 				),
 			),
 			rhs: NewLiteralExpression(50),
-			expected: NewAddExpression(
-				NewMultiplyExpression(
+			expected: NewDivideExpression(
+				NewAddExpression(
 					NewMultiplyExpression(
-						NewInputExpression(2),
 						NewEqualsExpression(NewInputExpression(1), 7),
+						NewMultiplyExpression(NewInputExpression(2), 100),
 					),
-					2,
+					NewInputExpression(0),
 				),
-				NewDivideExpression(NewInputExpression(0), 50),
+				50,
 			),
 		},
 		{
