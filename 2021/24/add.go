@@ -2,6 +2,7 @@ package d24
 
 import (
 	"fmt"
+	"strconv"
 )
 
 // AddExpression defines a BinaryExpression that adds its left and righthand sides.
@@ -138,6 +139,21 @@ func (e *AddExpression) Simplify(inputs map[int]int) Expression {
 			}
 		},
 	)
+}
+
+func (e *AddExpression) String() string {
+	lhs := e.Lhs().String()
+	rhs := e.Rhs().String()
+	op := "+"
+
+	if i, err := strconv.ParseInt(rhs, 10, 64); err == nil {
+		if i < 0 {
+			op = "-"
+			rhs = strconv.Itoa(int(i * -1))
+		}
+	}
+
+	return fmt.Sprintf("(%s %s %s)", lhs, op, rhs)
 }
 
 // Given a set of expressions being added together, recurses through them
