@@ -33,7 +33,7 @@ func TestNewCompoundRangeFromContinuousRanges(t *testing.T) {
 			name:     "DifferentStepIntersect",
 			a:        newContinuousRange(2, 8, 2),
 			b:        newContinuousRange(3, 9, 3),
-			expected: "<<2..8 step 2>,<3..9 step 3>>",
+			expected: "<<2..8 step 2>,<3,6,9>>",
 		},
 	}
 

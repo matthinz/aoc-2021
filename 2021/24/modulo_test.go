@@ -93,7 +93,7 @@ func TestModuloExpressionRange(t *testing.T) {
 			lhs:            NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(100000)),
 			rhs:            NewLiteralExpression(26),
 			expected:       []int{2, 4, 6, 8, 10, 12, 16, 20, 24},
-			expectedString: "<<2..12 step 2>,<16..24 step 4>>",
+			expectedString: "<<2..12 step 2>,<16,20,24>>",
 		},
 		{
 			name:     "RhsEqualToLhsStep",
