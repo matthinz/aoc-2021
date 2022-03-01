@@ -2,6 +2,7 @@ package d24
 
 import (
 	_ "embed"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -18,7 +19,7 @@ func TestParseFirstLinesOfRealInput(t *testing.T) {
 }
 
 func TestParseRealInputFindsAllInputsInZ(t *testing.T) {
-	// t.Skip()
+	t.Skip()
 	r := parseInput(strings.NewReader(realInput))
 	inputsFound := make(map[int]int)
 	r.z.Accept(func(e Expression) {
@@ -34,4 +35,29 @@ func TestParseRealInputFindsAllInputsInZ(t *testing.T) {
 			t.Errorf("Input not found: %d", i)
 		}
 	}
+}
+
+func TestParseRealInputTrySolution(t *testing.T) {
+	t.Skip()
+	registers := parseInput(strings.NewReader(realInput))
+	solution := []int{9, 8, 7, 1, 4, 3, 9, 3, 4, 9, 7, 9, 3, 3}
+
+	simplified := registers.z.Simplify(solution)
+	r := simplified.Range()
+
+	if !r.Includes(0) {
+		t.Fatalf("Solution range does not include 0")
+	}
+
+	fmt.Println(simplified.Range())
+
+	value, err := simplified.Evaluate()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if value != 0 {
+		t.Errorf("solution evaluated to %d", value)
+	}
+
 }

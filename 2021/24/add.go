@@ -116,26 +116,34 @@ func (e *AddExpression) Simplify(inputs []int) Expression {
 		func(lhs, rhs Expression) Expression {
 			literal, inputs, other := unrollAddExpressions(lhs, rhs)
 
-			if literal != nil && literal.value == 0 {
-				literal = nil
-			}
+			var result Expression
 
 			for _, expr := range combineInputs(inputs...) {
-				if other == nil {
-					other = expr
-				} else {
-					other = NewAddExpression(other, expr)
+				if result == nil {
+					result = expr
+				} else if expr != nil {
+					result = NewAddExpression(result, expr)
 				}
 			}
 
-			if literal != nil && other != nil {
-				return NewAddExpression(other, literal)
-			} else if literal != nil {
-				return literal
+			if result == nil {
+				result = other
 			} else if other != nil {
-				return other
-			} else {
+				result = NewAddExpression(result, other)
+			}
+
+			if literal != nil && literal.value != 0 {
+				if result == nil {
+					result = literal
+				} else if literal != nil {
+					result = NewAddExpression(result, literal)
+				}
+			}
+
+			if result == nil {
 				return NewLiteralExpression(0)
+			} else {
+				return result
 			}
 		},
 	)

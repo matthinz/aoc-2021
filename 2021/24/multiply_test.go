@@ -125,36 +125,36 @@ func TestMultiplyExpressionSimplify(t *testing.T) {
 			rhs:      NewLiteralExpression(1),
 			expected: NewInputExpression(0),
 		},
-		{
-			name: "DistributeRhsLiteralToLhsSum",
-			lhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(10)),
-			rhs:  NewLiteralExpression(20),
-			expected: NewAddExpression(
-				NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
-				NewLiteralExpression(200),
-			),
-		},
-		{
-			name: "DistributeLhsLiteralToRhsSum",
-			lhs:  NewLiteralExpression(20),
-			rhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(10)),
-			expected: NewAddExpression(
-				NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
-				NewLiteralExpression(200),
-			),
-		},
-		{
-			name:     "DistributeToMultiplyOnLhs",
-			lhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
-			rhs:      NewLiteralExpression(10),
-			expected: NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(200)),
-		},
-		{
-			name:     "DistributeToMultiplyOnRhs",
-			lhs:      NewLiteralExpression(10),
-			rhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
-			expected: NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(200)),
-		},
+		// {
+		// 	name: "DistributeRhsLiteralToLhsSum",
+		// 	lhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(10)),
+		// 	rhs:  NewLiteralExpression(20),
+		// 	expected: NewAddExpression(
+		// 		NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
+		// 		NewLiteralExpression(200),
+		// 	),
+		// },
+		// {
+		// 	name: "DistributeLhsLiteralToRhsSum",
+		// 	lhs:  NewLiteralExpression(20),
+		// 	rhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(10)),
+		// 	expected: NewAddExpression(
+		// 		NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
+		// 		NewLiteralExpression(200),
+		// 	),
+		// },
+		// {
+		// 	name:     "DistributeToMultiplyOnLhs",
+		// 	lhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
+		// 	rhs:      NewLiteralExpression(10),
+		// 	expected: NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(200)),
+		// },
+		// {
+		// 	name:     "DistributeToMultiplyOnRhs",
+		// 	lhs:      NewLiteralExpression(10),
+		// 	rhs:      NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(20)),
+		// 	expected: NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(200)),
+		// },
 	}
 
 	for _, test := range tests {

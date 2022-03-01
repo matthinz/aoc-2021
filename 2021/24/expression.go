@@ -351,7 +351,14 @@ func simplifyBinaryExpression(
 	}
 
 	simplifiedLhs := ogLhs.Simplify(inputs)
+	if simplifiedLhs == nil {
+		simplifiedLhs = ogLhs
+	}
+
 	simplifiedRhs := ogRhs.Simplify(inputs)
+	if simplifiedRhs == nil {
+		simplifiedRhs = ogRhs
+	}
 
 	simplified := simplifier(simplifiedLhs, simplifiedRhs)
 

@@ -6,6 +6,7 @@ import (
 )
 
 func TestFindAllInputsInZ(t *testing.T) {
+	t.Skip()
 	reg := parseInput(strings.NewReader(realInput))
 	expr := reg.z.Simplify([]int{})
 	inputs := make(map[int]int)

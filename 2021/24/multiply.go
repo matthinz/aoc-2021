@@ -140,63 +140,65 @@ func (e *MultiplyExpression) Simplify(inputs []int) Expression {
 				return lhs
 			}
 
-			// For expressions like (i0 + 4) * 5, distribute the "5" into  so we get
-			// ((5*i0) + 20)
-			lhsSum, lhsIsSum := lhs.(*AddExpression)
-			rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
-			if lhsIsSum && rhsIsLiteral {
-				// Distribute literal to sum expression
-				expr := NewAddExpression(
-					NewMultiplyExpression(lhsSum.Lhs(), rhsLiteral),
-					NewMultiplyExpression(lhsSum.Rhs(), rhsLiteral),
-				)
-				return expr.Simplify(inputs)
-			}
+			/*
+				// For expressions like (i0 + 4) * 5, distribute the "5" into  so we get
+				// ((5*i0) + 20)
+				lhsSum, lhsIsSum := lhs.(*AddExpression)
+				rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
+				if lhsIsSum && rhsIsLiteral {
+					// Distribute literal to sum expression
+					expr := NewAddExpression(
+						NewMultiplyExpression(lhsSum.Lhs(), rhsLiteral),
+						NewMultiplyExpression(lhsSum.Rhs(), rhsLiteral),
+					)
+					return expr.Simplify(inputs)
+				}
 
-			rhsSum, rhsIsSum := rhs.(*AddExpression)
-			lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
-			if rhsIsSum && lhsIsLiteral {
-				// Distribute literal to sum expression
-				expr := NewAddExpression(
-					NewMultiplyExpression(rhsSum.Lhs(), lhsLiteral),
-					NewMultiplyExpression(rhsSum.Rhs(), lhsLiteral),
-				)
-				return expr.Simplify(inputs)
-			}
+				rhsSum, rhsIsSum := rhs.(*AddExpression)
+				lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
+				if rhsIsSum && lhsIsLiteral {
+					// Distribute literal to sum expression
+					expr := NewAddExpression(
+						NewMultiplyExpression(rhsSum.Lhs(), lhsLiteral),
+						NewMultiplyExpression(rhsSum.Rhs(), lhsLiteral),
+					)
+					return expr.Simplify(inputs)
+				}
 
-			if lhsMultiply, lhsIsMultiply := lhs.(*MultiplyExpression); lhsIsMultiply && rhsIsSingleValue {
-				if lhsLiteral, lhsIsLiteral := lhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
-					expr := NewMultiplyExpression(
-						NewLiteralExpression(lhsLiteral.value*rhsSingleValue),
-						lhsMultiply.Rhs(),
-					)
-					return expr.Simplify(inputs)
+				if lhsMultiply, lhsIsMultiply := lhs.(*MultiplyExpression); lhsIsMultiply && rhsIsSingleValue {
+					if lhsLiteral, lhsIsLiteral := lhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
+						expr := NewMultiplyExpression(
+							NewLiteralExpression(lhsLiteral.value*rhsSingleValue),
+							lhsMultiply.Rhs(),
+						)
+						return expr.Simplify(inputs)
+					}
+					if rhsLiteral, rhsIsLiteral := lhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
+						expr := NewMultiplyExpression(
+							lhsMultiply.Lhs(),
+							NewLiteralExpression(rhsLiteral.value*rhsSingleValue),
+						)
+						return expr.Simplify(inputs)
+					}
 				}
-				if rhsLiteral, rhsIsLiteral := lhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
-					expr := NewMultiplyExpression(
-						lhsMultiply.Lhs(),
-						NewLiteralExpression(rhsLiteral.value*rhsSingleValue),
-					)
-					return expr.Simplify(inputs)
-				}
-			}
 
-			if rhsMultiply, rhsIsMultiply := rhs.(*MultiplyExpression); rhsIsMultiply && lhsIsSingleValue {
-				if lhsLiteral, lhsIsLiteral := rhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
-					expr := NewMultiplyExpression(
-						NewLiteralExpression(lhsLiteral.value*lhsSingleValue),
-						rhsMultiply.Rhs(),
-					)
-					return expr.Simplify(inputs)
+				if rhsMultiply, rhsIsMultiply := rhs.(*MultiplyExpression); rhsIsMultiply && lhsIsSingleValue {
+					if lhsLiteral, lhsIsLiteral := rhsMultiply.Lhs().(*LiteralExpression); lhsIsLiteral {
+						expr := NewMultiplyExpression(
+							NewLiteralExpression(lhsLiteral.value*lhsSingleValue),
+							rhsMultiply.Rhs(),
+						)
+						return expr.Simplify(inputs)
+					}
+					if rhsLiteral, rhsIsLiteral := rhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
+						expr := NewMultiplyExpression(
+							rhsMultiply.Lhs(),
+							NewLiteralExpression(rhsLiteral.value*lhsSingleValue),
+						)
+						return expr.Simplify(inputs)
+					}
 				}
-				if rhsLiteral, rhsIsLiteral := rhsMultiply.Rhs().(*LiteralExpression); rhsIsLiteral {
-					expr := NewMultiplyExpression(
-						rhsMultiply.Lhs(),
-						NewLiteralExpression(rhsLiteral.value*lhsSingleValue),
-					)
-					return expr.Simplify(inputs)
-				}
-			}
+			*/
 			return NewMultiplyExpression(lhs, rhs)
 		},
 	)

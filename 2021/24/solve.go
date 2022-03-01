@@ -8,7 +8,9 @@ import (
 // Attempts to solve the given expression, returning a map of input indices to
 // input values required for `expr` to evaluate to `target`.
 func Solve(expr Expression, target int, l *log.Logger) ([]int, error) {
-	inputs, err := solveStep(expr, target, []int{}, countInputs(expr), l)
+	initialInputs := []int{9, 8, 7, 1, 4, 3, 9, 3, 4, 9, 7, 9, 3}
+
+	inputs, err := solveStep(expr, target, initialInputs, 0, countInputs(expr), l)
 
 	if err != nil {
 		return []int{}, err
@@ -21,7 +23,7 @@ func Solve(expr Expression, target int, l *log.Logger) ([]int, error) {
 	}
 
 	if value != target {
-		return inputs, fmt.Errorf("Inputs did not evaluate to %d", target)
+		return inputs, fmt.Errorf("Inputs did not evaluate to %d with initial expression (got %d)", target, value)
 	}
 
 	// Now we want to count _up_  to try and
@@ -44,35 +46,77 @@ func countInputs(expr Expression) int {
 	return len(inputCounts)
 }
 
-func solveStep(expr Expression, target int, inputs []int, inputCount int, l *log.Logger) ([]int, error) {
+func solveStep(expr Expression, target int, inputs []int, index int, inputCount int, l *log.Logger) ([]int, error) {
 
 	if len(inputs) >= inputCount {
 		return inputs, nil
 	}
 
-	nextInputs := make([]int, len(inputs)+1)
+	var nextInputs []int
+	if index >= len(inputs) {
+		nextInputs = make([]int, index+1)
+	} else {
+		nextInputs = make([]int, len(inputs))
+	}
 	copy(nextInputs, inputs)
 
-	index := len(nextInputs) - 1
+	var initialValue int
+	if IsValidInputValue(nextInputs[index]) {
+		initialValue = nextInputs[index]
+	} else {
+		initialValue = MaxInputValue
+	}
 
-	for i := MaxInputValue; i >= MinInputValue; i-- {
+	for i := initialValue; i >= MinInputValue; i-- {
 		nextInputs[index] = i
 
-		l.Printf("trying %d = %d", index, i)
-		simplified := expr.Simplify(nextInputs)
+		values := nextInputs[0 : index+1]
+
+		l.Printf("trying %v", values)
+
+		beforeCount := countExpressions(expr)
+		simplified := expr.Simplify(values)
+		afterCount := countExpressions(simplified)
+
+		l.Printf("Simplified from %d -> %d (%d%%)", beforeCount, afterCount, int((float64(beforeCount-afterCount)/float64(beforeCount))*-100))
+
+		if afterCount < 50 {
+			l.Printf(simplified.String())
+		}
+
 		r := simplified.Range()
-		l.Printf("range: %s", r)
+
+		l.Printf("range is now %s", r)
 
 		if r.Includes(target) {
-			fmt.Println(nextInputs)
-			result, err := solveStep(simplified, target, nextInputs, inputCount, l)
+
+			fmt.Println(values)
+
+			value, err := simplified.Evaluate()
+
+			if err == nil && value == target {
+				return values, nil
+			}
+
+			result, err := solveStep(simplified, target, nextInputs, index+1, inputCount, l)
+
 			if err == nil {
 				return result, nil
 			}
+		} else {
+			l.Printf("range does not include %d", target)
 		}
 	}
 
-	return nil, fmt.Errorf("Could not solve for %d", target)
+	return nil, fmt.Errorf("Could not solve for %d at %d", target, index)
+}
+
+func countExpressions(expr Expression) int {
+	count := 0
+	expr.Accept(func(e Expression) {
+		count++
+	})
+	return count
 }
 
 func solveUp(expr Expression, target int, inputs []int, l *log.Logger) chan []int {
