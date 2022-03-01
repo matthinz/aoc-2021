@@ -3,52 +3,14 @@ package d24
 import (
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 )
 
 // Attempts to solve the given expression, returning a map of input indices to
 // input values required for `expr` to evaluate to `target`.
 func Solve(expr Expression, target int, l *log.Logger) (map[int]int, error) {
-
-	type validValue struct {
-		index int
-		value int
-	}
-
-	inputCount := countInputs(expr)
-
-	wg := sync.WaitGroup{}
-	wg.Add(inputCount)
-
-	ch := make(chan validValue)
-
-	for i := 0; i < inputCount; i++ {
-		go func(index int) {
-			inputs := make(map[int]int, 1)
-			for i := MaxInputValue; i >= MinInputValue; i-- {
-				inputs[index] = i
-				next := expr.Simplify(inputs)
-				r := next.Range()
-				if r.Includes(target) {
-					ch <- validValue{index, i}
-				}
-			}
-			wg.Done()
-		}(i)
-	}
-
-	go func() {
-		wg.Wait()
-		close(ch)
-	}()
-
-	for v := range ch {
-		fmt.Println(v)
-	}
-
-	panic("NOT IMPLEMENTED")
-
-	// return solveStep(expr, target, map[int]int{}, inputCount, l)
+	return solveStep(expr, target, map[int]int{}, countInputs(expr), l)
 }
 
 func countInputs(expr Expression) int {
@@ -63,43 +25,73 @@ func countInputs(expr Expression) int {
 
 func solveStep(expr Expression, target int, knownInputs map[int]int, inputCount int, l *log.Logger) (map[int]int, error) {
 
-	nextInputs := make(map[int]int)
-	maxIndex := -1
-	for index, value := range knownInputs {
-		nextInputs[index] = value
-		if index > maxIndex {
-			maxIndex = index
-		}
+	type foundValue struct {
+		value int
+		expr  Expression
 	}
 
-	if maxIndex+1 >= inputCount {
+	if len(knownInputs) >= inputCount {
 		return knownInputs, nil
 	}
 
+	// Spawn a goroutine for each digit and see which ones work
+
+	wg := sync.WaitGroup{}
+	wg.Add(MaxInputValue - MinInputValue + 1)
+
+	ch := make(chan foundValue)
+
 	for value := MaxInputValue; value >= MinInputValue; value-- {
-		nextInputs[maxIndex+1] = value
-
-		simplified := expr.Simplify(nextInputs)
-		r := simplified.Range()
-
-		if !r.Includes(target) {
-			continue
-		}
-
-		if continuous, isContinuous := r.(*continuousRange); isContinuous {
-			if continuous.min == target && continuous.max == target {
-				return nextInputs, nil
+		go func(value int) {
+			nextInputs := make(map[int]int)
+			maxIndex := -1
+			for index, value := range knownInputs {
+				nextInputs[index] = value
+				if index > maxIndex {
+					maxIndex = index
+				}
 			}
+
+			nextInputs[maxIndex+1] = value
+			simplified := expr.Simplify(nextInputs)
+			r := simplified.Range()
+			if r.Includes(target) {
+				ch <- foundValue{
+					value: value,
+					expr:  simplified,
+				}
+			}
+			wg.Done()
+		}(value)
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	valids := make([]foundValue, 0)
+	for fv := range ch {
+		valids = append(valids, fv)
+	}
+
+	sort.Slice(valids, func(i, j int) bool {
+		return valids[i].value > valids[j].value
+	})
+
+	for _, fv := range valids {
+		nextInputs := make(map[int]int)
+		for index, v := range knownInputs {
+			nextInputs[index] = v
 		}
 
-		l.Println(nextInputs)
+		nextInputs[len(knownInputs)] = fv.value
+		l.Print(nextInputs)
 
-		result, err := solveStep(simplified, target, nextInputs, inputCount, l)
-		if err != nil {
-			continue
+		result, err := solveStep(fv.expr, target, nextInputs, inputCount, l)
+		if err == nil {
+			return result, nil
 		}
-
-		return result, nil
 	}
 
 	// These inputs won't work
