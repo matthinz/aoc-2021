@@ -55,7 +55,7 @@ func TestMultiplyExpressionRange(t *testing.T) {
 			name:             "AddedInputAndEquals",
 			lhs:              NewAddExpression(NewInputExpression(0), NewLiteralExpression(8)),
 			rhs:              NewEqualsExpression(NewInputExpression(1), NewLiteralExpression(7)),
-			expectedAsString: "<<0>,<9..17>>",
+			expectedAsString: "<0,<9..17>>",
 		},
 	}
 

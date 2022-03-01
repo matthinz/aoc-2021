@@ -70,7 +70,11 @@ func (r *continuousRange) Max() int {
 
 func (r *continuousRange) String() string {
 	if r.min == r.max {
-		return fmt.Sprintf("<%d>", r.min)
+		return fmt.Sprintf("%d", r.min)
+	} else if r.min+r.step == r.max {
+		return fmt.Sprintf("<%d,%d>", r.min, r.max)
+	} else if r.min+(r.step*2) == r.max {
+		return fmt.Sprintf("<%d,%d,%d>", r.min, r.min+r.step, r.max)
 	} else if r.step != 1 {
 		return fmt.Sprintf("<%d..%d step %d>", r.min, r.max, r.step)
 	} else {
