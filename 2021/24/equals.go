@@ -45,7 +45,7 @@ func (e *EqualsExpression) Range() Range {
 	return newContinuousRange(0, 1, 1)
 }
 
-func (e *EqualsExpression) Simplify(inputs map[int]int) Expression {
+func (e *EqualsExpression) Simplify(inputs []int) Expression {
 	return simplifyBinaryExpression(
 		&e.binaryExpression,
 		inputs,

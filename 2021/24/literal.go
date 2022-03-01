@@ -27,7 +27,7 @@ func (e *LiteralExpression) Range() Range {
 	return newContinuousRange(e.value, e.value, 1)
 }
 
-func (e *LiteralExpression) Simplify(inputs map[int]int) Expression {
+func (e *LiteralExpression) Simplify(inputs []int) Expression {
 	return e
 }
 

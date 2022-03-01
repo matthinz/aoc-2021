@@ -65,7 +65,7 @@ func parseInput(r io.Reader) *Registers {
 
 		// set the value of the specified register to the expression
 		// fmt.Printf("%d: %s \n", lineIndex, line)
-		simplified := expr.Simplify(map[int]int{})
+		simplified := expr.Simplify([]int{})
 		// fmt.Println(simplified.String())
 		result.set(parts[1], simplified)
 

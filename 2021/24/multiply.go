@@ -107,7 +107,7 @@ func (e *MultiplyExpression) Range() Range {
 	return e.cachedRange
 }
 
-func (e *MultiplyExpression) Simplify(inputs map[int]int) Expression {
+func (e *MultiplyExpression) Simplify(inputs []int) Expression {
 	return simplifyBinaryExpression(
 		&e.binaryExpression,
 		inputs,

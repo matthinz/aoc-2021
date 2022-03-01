@@ -7,7 +7,7 @@ import (
 
 func TestFindAllInputsInZ(t *testing.T) {
 	reg := parseInput(strings.NewReader(realInput))
-	expr := reg.z.Simplify(map[int]int{})
+	expr := reg.z.Simplify([]int{})
 	inputs := make(map[int]int)
 	expr.Accept(func(e Expression) {
 		if input, isInput := e.(*InputExpression); isInput {
@@ -28,6 +28,6 @@ func TestFindAllInputsInZ(t *testing.T) {
 func BenchmarkSimplify(b *testing.B) {
 	reg := parseInput(strings.NewReader(realInput))
 	for i := 0; i < b.N; i++ {
-		reg.z.Simplify(map[int]int{})
+		reg.z.Simplify([]int{})
 	}
 }

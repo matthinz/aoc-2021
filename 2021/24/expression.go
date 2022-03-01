@@ -18,7 +18,7 @@ type Expression interface {
 
 	// Given a set of known inputs, attempts to simplify this Expression.
 	// Returns the simplified version.
-	Simplify(inputs map[int]int) Expression
+	Simplify(inputs []int) Expression
 
 	String() string
 }
@@ -308,7 +308,7 @@ func evaluateBinaryExpression(e BinaryExpression, op func(lhs, rhs int) (int, er
 
 func simplifyBinaryExpression(
 	e *binaryExpression,
-	inputs map[int]int,
+	inputs []int,
 	simplifier func(lhs, rhs Expression) Expression,
 ) Expression {
 	if e.normalized != nil {
@@ -321,8 +321,14 @@ func simplifyBinaryExpression(
 		// If _none_ of the referenced inputs on this expression are actually contained
 		// in the known inputs map, we can just use the normalized version
 		anyIncomingInputsReferenced := false
-		for index := range e.ReferencedInputs() {
-			_, isReferenced := inputs[index]
+		for referencedIndex := range e.ReferencedInputs() {
+			isReferenced := false
+			for index, value := range inputs {
+				if index == referencedIndex && value >= MinInputValue && value <= MaxInputValue {
+					isReferenced = true
+					break
+				}
+			}
 			if isReferenced {
 				anyIncomingInputsReferenced = true
 				break

@@ -114,7 +114,7 @@ func (e *ModuloExpression) Range() Range {
 	return e.cachedRange
 }
 
-func (e *ModuloExpression) Simplify(inputs map[int]int) Expression {
+func (e *ModuloExpression) Simplify(inputs []int) Expression {
 	return simplifyBinaryExpression(
 		&e.binaryExpression,
 		inputs,

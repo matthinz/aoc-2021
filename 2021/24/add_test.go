@@ -167,7 +167,7 @@ func TestAddExpressionSimplify(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewAddExpression(test.lhs, test.rhs)
-			actual := expr.Simplify(map[int]int{})
+			actual := expr.Simplify([]int{})
 			if actual == nil {
 				t.Fatal("Simplify() returned nil")
 			}

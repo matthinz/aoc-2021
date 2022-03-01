@@ -90,7 +90,7 @@ func (e *DivideExpression) Range() Range {
 	return e.cachedRange
 }
 
-func (e *DivideExpression) Simplify(inputs map[int]int) Expression {
+func (e *DivideExpression) Simplify(inputs []int) Expression {
 	return simplifyBinaryExpression(
 		&e.binaryExpression,
 		inputs,
@@ -137,7 +137,7 @@ func (e *DivideExpression) Simplify(inputs map[int]int) Expression {
 	)
 }
 
-func simplifyDivisionOfAddExpression(dividend *AddExpression, divisor Expression, inputs map[int]int) Expression {
+func simplifyDivisionOfAddExpression(dividend *AddExpression, divisor Expression, inputs []int) Expression {
 	switch divisor := divisor.(type) {
 	case *AddExpression:
 		if *dividend == *divisor {
@@ -165,7 +165,7 @@ func simplifyDivisionOfAddExpression(dividend *AddExpression, divisor Expression
 	return NewAddExpression(newLhs, newRhs)
 }
 
-func simplifyDivisionOfInputExpression(dividend *InputExpression, divisor Expression, inputs map[int]int) Expression {
+func simplifyDivisionOfInputExpression(dividend *InputExpression, divisor Expression, inputs []int) Expression {
 	switch d := divisor.(type) {
 	case *LiteralExpression:
 		if d.value == 1 {
@@ -192,7 +192,7 @@ func simplifyDivisionOfInputExpression(dividend *InputExpression, divisor Expres
 	return nil
 }
 
-func simplifyDivisionOfLiteralExpression(dividend *LiteralExpression, divisor Expression, inputs map[int]int) Expression {
+func simplifyDivisionOfLiteralExpression(dividend *LiteralExpression, divisor Expression, inputs []int) Expression {
 	if dividend.value == 0 {
 		return NewLiteralExpression(0)
 	}
@@ -210,7 +210,7 @@ func simplifyDivisionOfLiteralExpression(dividend *LiteralExpression, divisor Ex
 	return nil
 }
 
-func simplifyDivisionOfMultiplyExpression(dividend *MultiplyExpression, divisor Expression, inputs map[int]int) Expression {
+func simplifyDivisionOfMultiplyExpression(dividend *MultiplyExpression, divisor Expression, inputs []int) Expression {
 	literal, inputExpressions, other := unrollMultiplyExpressions(dividend)
 
 	switch d := divisor.(type) {

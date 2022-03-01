@@ -160,7 +160,7 @@ func TestModuloExpressionSimplify(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			expr := NewModuloExpression(test.lhs, test.rhs)
-			actual := expr.Simplify(map[int]int{})
+			actual := expr.Simplify([]int{})
 			if actual.String() != test.expected.String() {
 				t.Errorf("Expected %s but got %s", test.expected.String(), actual.String())
 			}

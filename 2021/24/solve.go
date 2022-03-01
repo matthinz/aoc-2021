@@ -3,14 +3,35 @@ package d24
 import (
 	"fmt"
 	"log"
-	"sort"
-	"sync"
 )
 
 // Attempts to solve the given expression, returning a map of input indices to
 // input values required for `expr` to evaluate to `target`.
-func Solve(expr Expression, target int, l *log.Logger) (map[int]int, error) {
-	return solveStep(expr, target, map[int]int{}, countInputs(expr), l)
+func Solve(expr Expression, target int, l *log.Logger) ([]int, error) {
+	inputs, err := solveStep(expr, target, []int{}, countInputs(expr), l)
+
+	if err != nil {
+		return []int{}, err
+	}
+
+	simplified := expr.Simplify(inputs)
+	value, err := simplified.Evaluate()
+	if err != nil {
+		return []int{}, err
+	}
+
+	if value != target {
+		return inputs, fmt.Errorf("Inputs did not evaluate to %d", target)
+	}
+
+	// Now we want to count _up_  to try and
+	ch := solveUp(expr, target, inputs, l)
+	var solution []int
+	for solution = range ch {
+		l.Print(solution)
+	}
+
+	return solution, nil
 }
 
 func countInputs(expr Expression) int {
@@ -23,77 +44,67 @@ func countInputs(expr Expression) int {
 	return len(inputCounts)
 }
 
-func solveStep(expr Expression, target int, knownInputs map[int]int, inputCount int, l *log.Logger) (map[int]int, error) {
+func solveStep(expr Expression, target int, inputs []int, inputCount int, l *log.Logger) ([]int, error) {
 
-	type foundValue struct {
-		value int
-		expr  Expression
+	if len(inputs) >= inputCount {
+		return inputs, nil
 	}
 
-	if len(knownInputs) >= inputCount {
-		return knownInputs, nil
-	}
+	nextInputs := make([]int, len(inputs)+1)
+	copy(nextInputs, inputs)
 
-	// Spawn a goroutine for each digit and see which ones work
+	index := len(nextInputs) - 1
 
-	wg := sync.WaitGroup{}
-	wg.Add(MaxInputValue - MinInputValue + 1)
+	for i := MaxInputValue; i >= MinInputValue; i-- {
+		nextInputs[index] = i
 
-	ch := make(chan foundValue)
+		l.Printf("trying %d = %d", index, i)
+		simplified := expr.Simplify(nextInputs)
+		r := simplified.Range()
+		l.Printf("range: %s", r)
 
-	for value := MaxInputValue; value >= MinInputValue; value-- {
-		go func(value int) {
-			nextInputs := make(map[int]int)
-			maxIndex := -1
-			for index, value := range knownInputs {
-				nextInputs[index] = value
-				if index > maxIndex {
-					maxIndex = index
-				}
+		if r.Includes(target) {
+			fmt.Println(nextInputs)
+			result, err := solveStep(simplified, target, nextInputs, inputCount, l)
+			if err == nil {
+				return result, nil
 			}
-
-			nextInputs[maxIndex+1] = value
-			simplified := expr.Simplify(nextInputs)
-			r := simplified.Range()
-			if r.Includes(target) {
-				ch <- foundValue{
-					value: value,
-					expr:  simplified,
-				}
-			}
-			wg.Done()
-		}(value)
+		}
 	}
+
+	return nil, fmt.Errorf("Could not solve for %d", target)
+}
+
+func solveUp(expr Expression, target int, inputs []int, l *log.Logger) chan []int {
+	ch := make(chan []int)
 
 	go func() {
-		wg.Wait()
-		close(ch)
+		defer close(ch)
+
+		index := len(inputs) - 1
+		for {
+
+			for inputs[index] >= MaxInputValue && index >= 0 {
+				index--
+			}
+
+			if index < 0 {
+				break
+			}
+
+			inputs[index]++
+
+			simplified := expr.Simplify(inputs)
+			result, err := simplified.Evaluate()
+
+			if err == nil && result == target {
+				inputCopy := make([]int, len(inputs))
+				copy(inputCopy, inputs)
+				ch <- inputCopy
+			}
+		}
+
 	}()
 
-	valids := make([]foundValue, 0)
-	for fv := range ch {
-		valids = append(valids, fv)
-	}
-
-	sort.Slice(valids, func(i, j int) bool {
-		return valids[i].value > valids[j].value
-	})
-
-	for _, fv := range valids {
-		nextInputs := make(map[int]int)
-		for index, v := range knownInputs {
-			nextInputs[index] = v
-		}
-
-		nextInputs[len(knownInputs)] = fv.value
-		l.Print(nextInputs)
-
-		result, err := solveStep(fv.expr, target, nextInputs, inputCount, l)
-		if err == nil {
-			return result, nil
-		}
-	}
-
-	// These inputs won't work
-	return nil, fmt.Errorf("Can't solve for %d", target)
+	return ch
 }

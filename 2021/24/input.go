@@ -29,6 +29,10 @@ func NewInputExpression(index int) Expression {
 	return expr
 }
 
+func IsValidInputValue(value int) bool {
+	return value >= MinInputValue && value <= MaxInputValue
+}
+
 func (e *InputExpression) Accept(visitor func(e Expression)) {
 	visitor(e)
 }
@@ -53,11 +57,14 @@ func (e *InputExpression) Range() Range {
 	return inputRange
 }
 
-func (e *InputExpression) Simplify(inputs map[int]int) Expression {
-	value, ok := inputs[e.index]
-	if ok {
-		return NewLiteralExpression(value)
+func (e *InputExpression) Simplify(inputs []int) Expression {
+	if e.index >= 0 && e.index < len(inputs) {
+		value := inputs[e.index]
+		if value >= MinInputValue || value <= MaxInputValue {
+			return NewLiteralExpression(value)
+		}
 	}
+
 	return e
 }
 
