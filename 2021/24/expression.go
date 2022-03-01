@@ -312,30 +312,8 @@ func simplifyBinaryExpression(
 	simplifier func(lhs, rhs Expression) Expression,
 ) Expression {
 	if e.normalized != nil {
-
 		if len(inputs) == 0 {
 			// Simplifying with no inputs is the same as normalizing
-			return e.normalized
-		}
-
-		// If _none_ of the referenced inputs on this expression are actually contained
-		// in the known inputs map, we can just use the normalized version
-		anyIncomingInputsReferenced := false
-		for referencedIndex := range e.ReferencedInputs() {
-			isReferenced := false
-			for index, value := range inputs {
-				if index == referencedIndex && value >= MinInputValue && value <= MaxInputValue {
-					isReferenced = true
-					break
-				}
-			}
-			if isReferenced {
-				anyIncomingInputsReferenced = true
-				break
-			}
-		}
-
-		if !anyIncomingInputsReferenced {
 			return e.normalized
 		}
 	}

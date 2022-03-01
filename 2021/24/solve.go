@@ -8,7 +8,7 @@ import (
 // Attempts to solve the given expression, returning a map of input indices to
 // input values required for `expr` to evaluate to `target`.
 func Solve(expr Expression, target int, l *log.Logger) ([]int, error) {
-	initialInputs := []int{9, 8, 7, 1, 4, 3, 9, 3, 4, 9, 7, 9, 3}
+	initialInputs := []int{9}
 
 	inputs, err := solveStep(expr, target, initialInputs, 0, countInputs(expr), l)
 
