@@ -8,8 +8,8 @@ import (
 func TestContinuousRangeIntersect(t *testing.T) {
 	type test struct {
 		name     string
-		lhs      *continuousRange
-		rhs      *continuousRange
+		lhs      ContinuousRange
+		rhs      ContinuousRange
 		expected bool
 	}
 
@@ -44,7 +44,7 @@ func TestContinuousRangeIntersect(t *testing.T) {
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%s,%s", test.lhs, test.rhs), func(t *testing.T) {
 
-			actual := test.lhs.Intersects(test.rhs)
+			actual := test.lhs.(*continuousRange).Intersects(test.rhs.(*continuousRange))
 			if actual && !test.expected {
 				t.Errorf("%s should NOT intersect %s", test.lhs, test.rhs)
 			} else if test.expected && !actual {

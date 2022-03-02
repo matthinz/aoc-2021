@@ -72,7 +72,7 @@ func TestAddExpressionRange(t *testing.T) {
 			name:           "TwoValuesWithSameStepOnDifferentStepIntervals",
 			lhs:            NewAddExpression(NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(26)), NewLiteralExpression(1)),
 			rhs:            NewMultiplyExpression(NewInputExpression(1), NewLiteralExpression(26)),
-			expectedString: "<<27..235 step 26> + <26..234 step 26>>",
+			expectedString: "<53..469 step 26>",
 		},
 	}
 

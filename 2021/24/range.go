@@ -1,6 +1,7 @@
 package d24
 
 import (
+	"fmt"
 	"sort"
 	"time"
 )
@@ -9,6 +10,9 @@ type Range interface {
 	// Returns whether this range includes the given value
 	Includes(value int) bool
 
+	// Splits this range into its component ContinuousRange elements.
+	Split() []ContinuousRange
+
 	String() string
 
 	// Returns a function that, when executed, returns the next value in the
@@ -16,36 +20,60 @@ type Range interface {
 	Values(context string) func() (int, bool)
 }
 
-// Assembles a continuousRange (or a compoundRange of multiple continuous
-// ranges) from a list of ints.
-func newRangeFromInts(values []int) Range {
-	if len(values) == 0 {
+// Builds a single Range from a list of integer values
+func newRangeFromInts(values interface{}) Range {
+
+	var sortedValues []int
+
+	switch x := values.(type) {
+	case map[int]bool:
+		sortedValues = make([]int, 0, len(x))
+		for value := range x {
+			sortedValues = append(sortedValues, value)
+		}
+	case map[int]int:
+		sortedValues = make([]int, 0, len(x))
+		for value := range x {
+			sortedValues = append(sortedValues, value)
+		}
+
+	case []int:
+		sortedValues = make([]int, 0, len(x))
+		for _, value := range x {
+			sortedValues = append(sortedValues, value)
+		}
+
+	default:
+		panic(fmt.Sprintf("Invalid value passed to newRangeFromInts: %T", values))
+	}
+
+	if len(sortedValues) == 0 {
 		return EmptyRange
 	}
 
-	sort.Ints(values)
+	sort.Ints(sortedValues)
 
 	step := 0
-	start := values[0]
+	start := sortedValues[0]
 	prev := start
 
-	var ranges []Range
+	var ranges []ContinuousRange
 
-	for i := 1; i < len(values); i++ {
-		if values[i] == prev {
+	for i := 1; i < len(sortedValues); i++ {
+		if sortedValues[i] == prev {
 			continue
 		}
 
 		if step == 0 {
-			step = values[i] - prev
-		} else if values[i] != prev+step {
+			step = sortedValues[i] - prev
+		} else if sortedValues[i] != prev+step {
 			// This is a new range
 			ranges = append(ranges, newContinuousRange(start, prev, step))
-			start = values[i]
+			start = sortedValues[i]
 			step = 0
 		}
 
-		prev = values[i]
+		prev = sortedValues[i]
 	}
 
 	if step == 0 {
@@ -58,7 +86,7 @@ func newRangeFromInts(values []int) Range {
 	if len(ranges) == 1 {
 		return ranges[0]
 	} else {
-		return newCompoundRange(ranges...)
+		return NewContinuousRangeSet(ranges)
 	}
 }
 
@@ -91,16 +119,6 @@ func RangesAreEqual(a, b Range, context string) bool {
 
 	if aIsContinuous && bIsContinuous {
 		return *aContinuous == *bContinuous
-	}
-
-	aBounded, aIsBounded := a.(BoundedRange)
-	bBounded, bIsBounded := b.(BoundedRange)
-
-	if aIsBounded && bIsBounded {
-		sameBounds := aBounded.Min() == bBounded.Min() && aBounded.Max() == bBounded.Max()
-		if !sameBounds {
-			return false
-		}
 	}
 
 	const SeenInA = 1
@@ -151,20 +169,7 @@ func RangesIntersect(a, b Range, context string) bool {
 
 	if aIsContinuous && bIsContinuous {
 		return aContinuous.Intersects(bContinuous)
-	}
-
-	aBounded, aIsBounded := a.(BoundedRange)
-	bBounded, bIsBounded := b.(BoundedRange)
-	if aIsBounded && bIsBounded {
-		if aBounded.Max() < bBounded.Min() {
-			return false
-		}
-		if aBounded.Min() > bBounded.Max() {
-			return false
-		}
-	}
-
-	if aIsContinuous || (!bIsContinuous && aIsBounded) {
+	} else if aIsContinuous {
 		// `Includes()` is a very efficient call for continuousRanges, so use
 		// a for that
 		temp := a

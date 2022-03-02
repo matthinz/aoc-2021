@@ -2,6 +2,7 @@ package d24
 
 import (
 	"fmt"
+	"math"
 )
 
 // Things about modulus
@@ -62,56 +63,56 @@ func (e *ModuloExpression) Evaluate() (int, error) {
 
 func (e *ModuloExpression) Range() Range {
 
-	if e.cachedRange != nil {
-		return e.cachedRange
-	}
-
-	lhsRange := e.Lhs().Range()
-	rhsRange := e.Rhs().Range()
-
-	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
-	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
-
-	if lhsIsContinuous && rhsIsContinuous {
-		if rhsContinuous.min == rhsContinuous.max {
-			if lhsContinuous.step == rhsContinuous.min {
-				// When the step of the lhs range == value of rhs range, then
-				// then the lhs range is reduced to a single value.
-				value := lhsContinuous.min % rhsContinuous.min
-				e.cachedRange = newContinuousRange(value, value, 1)
-				return e.cachedRange
+	return buildBinaryExpressionRange(
+		"ModuloExpression",
+		&e.binaryExpression,
+		func(lhs, rhs int) (int, error) {
+			if rhs == 0 {
+				return 0, fmt.Errorf("Can't modulo 0")
 			}
-		}
-	}
-
-	uniqueValues := make(map[int]int)
-
-	nextRhsValue := e.Rhs().Range().Values("ModuloExpression.Range")
-	for rhsValue, ok := nextRhsValue(); ok; rhsValue, ok = nextRhsValue() {
-		values := make(map[int]int)
-		nextLhsValue := e.Lhs().Range().Values("ModuloExpression.Range")
-
-		for lhsValue, ok := nextLhsValue(); ok; lhsValue, ok = nextLhsValue() {
-			value := lhsValue % rhsValue
-			values[value]++
-			if values[0] >= 2 {
-				break
+			return lhs % rhs, nil
+		},
+		func(lhs int, rhs ContinuousRange) (Range, error) {
+			if lhs == 0 {
+				return newContinuousRange(0, 0, 1), nil
 			}
-		}
 
-		for value := range values {
-			uniqueValues[value]++
-		}
-	}
+			values := make(map[int]int)
+			nextRhs := rhs.Values("ModuloExpression.Range")
 
-	values := make([]int, 0, len(uniqueValues))
-	for value := range uniqueValues {
-		values = append(values, value)
-	}
+			for rhs, ok := nextRhs(); ok; rhs, ok = nextRhs() {
+				if rhs == 0 {
+					continue
+				}
+				values[lhs%rhs]++
+				if values[0] > 2 {
+					break
+				}
+			}
 
-	e.cachedRange = newRangeFromInts(values)
+			return newRangeFromInts(values), nil
+		},
+		func(lhs ContinuousRange, rhs int) (Range, error) {
+			if rhs == 0 {
+				return nil, fmt.Errorf("Can't modulo 0")
+			}
 
-	return e.cachedRange
+			maxNumberOfValues := int(math.Abs(float64(rhs)))
+
+			values := make(map[int]bool)
+
+			nextLhs := lhs.Values("ModuloExpression.Range")
+			for lhs, ok := nextLhs(); ok; lhs, ok = nextLhs() {
+				values[lhs%rhs] = true
+				if len(values) >= maxNumberOfValues {
+					break
+				}
+			}
+
+			return newRangeFromInts(values), nil
+		},
+		nil,
+	)
 }
 
 func (e *ModuloExpression) Simplify(inputs []int) Expression {

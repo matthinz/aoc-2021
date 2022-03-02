@@ -46,48 +46,55 @@ func (e *DivideExpression) Evaluate() (int, error) {
 }
 
 func (e *DivideExpression) Range() Range {
-	if e.cachedRange == nil {
+	return buildBinaryExpressionRange(
+		"DivideExpression",
+		&e.binaryExpression,
+		func(lhs, rhs int) (int, error) {
+			if rhs == 0 {
+				return 0, fmt.Errorf("Can't divide by zero")
+			}
 
-		lhsRange := e.lhs.Range()
-		rhsRange := e.rhs.Range()
+			return lhs / rhs, nil
+		},
+		func(lhs int, rhs ContinuousRange) (Range, error) {
 
-		lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
-		rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
+			if lhs == 0 {
+				return newContinuousRange(0, 0, 1), nil
+			}
 
-		if lhsIsContinuous && rhsIsContinuous {
-
-			if rhsContinuous.min == rhsContinuous.max {
-
-				if rhsContinuous.min == 0 {
-					e.cachedRange = EmptyRange
-				} else {
-
-					rhsIsFactorOfLhsStep := (lhsContinuous.step/rhsContinuous.min)*rhsContinuous.min == lhsContinuous.step
-
-					if rhsIsFactorOfLhsStep {
-						// If lhs is continuous and rhs is a factor of the step of lhs,
-						// then we can cleanly divide everything
-						e.cachedRange = newContinuousRange(
-							lhsContinuous.min/rhsContinuous.min,
-							lhsContinuous.max/rhsContinuous.max,
-							lhsContinuous.step/rhsContinuous.min,
-						)
-					}
+			values := make(map[int]bool)
+			nextRhs := rhs.Values("DivideExpression.Range")
+			for rhs, ok := nextRhs(); ok; rhs, ok = nextRhs() {
+				if rhs == 0 {
+					continue
 				}
+				values[lhs/rhs] = true
 			}
 
-		}
-
-		if e.cachedRange == nil {
-
-			e.cachedRange = &divisionRange{
-				lhs: e.Lhs().Range(),
-				rhs: e.Rhs().Range(),
+			return newRangeFromInts(values), nil
+		},
+		func(lhs ContinuousRange, rhs int) (Range, error) {
+			if rhs == 0 {
+				return nil, fmt.Errorf("Can't divide by zero")
 			}
-		}
-	}
 
-	return e.cachedRange
+			if rhs == 1 {
+				return lhs, nil
+			}
+
+			values := make(map[int]bool)
+			nextLhs := lhs.Values("DivideExpression.Range")
+			for lhs, ok := nextLhs(); ok; lhs, ok = nextLhs() {
+				if lhs == 0 {
+					continue
+				}
+				values[lhs/rhs] = true
+			}
+
+			return newRangeFromInts(values), nil
+		},
+		nil,
+	)
 }
 
 func (e *DivideExpression) Simplify(inputs []int) Expression {
@@ -145,47 +152,4 @@ func simplifyDivisionOfLiteralExpression(dividend *LiteralExpression, divisor Ex
 		}
 	}
 	return nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// divisionRange
-
-func (r *divisionRange) Includes(value int) bool {
-	next := r.Values(fmt.Sprintf("%s includes %v", r, value))
-
-	for v, ok := next(); ok; v, ok = next() {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *divisionRange) String() string {
-	return fmt.Sprintf("<%s / %s>", r.lhs.String(), r.rhs.String())
-}
-
-func (r *divisionRange) Values(context string) func() (int, bool) {
-
-	pos := 0
-
-	return func() (int, bool) {
-
-		if r.cachedValues == nil {
-			r.cachedValues = buildBinaryExpressionRangeValues(
-				r.lhs,
-				r.rhs,
-				func(lhsValue, rhsValue int) int { return lhsValue / rhsValue },
-				context,
-			)
-		}
-
-		if pos >= len(*r.cachedValues) {
-			return 0, false
-		}
-
-		value := (*r.cachedValues)[pos]
-		pos++
-		return value, true
-	}
 }

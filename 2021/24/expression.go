@@ -237,6 +237,118 @@ func newBinaryExpression(
 	return result
 }
 
+func buildBinaryExpressionRange(
+	context string,
+	e *binaryExpression,
+	computeSingleValue func(lhs, rhs int) (int, error),
+	computeSingleLhsValue func(lhs int, rhs ContinuousRange) (Range, error),
+	computeSingleRhsValue func(lhs ContinuousRange, rhs int) (Range, error),
+	compute func(lhs, rhs ContinuousRange) (Range, error),
+) Range {
+
+	if e.cachedRange != nil {
+		return e.cachedRange
+	}
+
+	if compute == nil {
+		compute = func(lhs, rhs ContinuousRange) (Range, error) {
+			var ranges []ContinuousRange
+
+			if lhs.Length() < rhs.Length() {
+				nextLhs := lhs.Values("buildBinaryExpressionRange")
+
+				for lhs, lhsOk := nextLhs(); lhsOk; lhs, lhsOk = nextLhs() {
+					r, err := computeSingleLhsValue(lhs, rhs)
+					if err == nil {
+						ranges = append(ranges, r.Split()...)
+					}
+				}
+			} else {
+				nextRhs := rhs.Values("buildBinaryExpressionRange")
+				for rhs, rhsOk := nextRhs(); rhsOk; rhs, rhsOk = nextRhs() {
+					r, err := computeSingleRhsValue(lhs, rhs)
+					if err == nil {
+						ranges = append(ranges, r.Split()...)
+					}
+				}
+			}
+
+			if len(ranges) == 0 {
+				return EmptyRange, nil
+			}
+
+			result := NewContinuousRangeSet(ranges)
+			return result, nil
+		}
+	}
+
+	if computeSingleRhsValue == nil {
+		computeSingleRhsValue = func(lhs ContinuousRange, rhs int) (Range, error) {
+			return computeSingleLhsValue(rhs, lhs)
+		}
+	}
+
+	lhs, rhs := e.Lhs(), e.Rhs()
+	lhsRanges, rhsRanges := lhs.Range().Split(), rhs.Range().Split()
+
+	if len(lhsRanges) == 0 || len(rhsRanges) == 0 {
+		return EmptyRange
+	}
+
+	var rawRanges []ContinuousRange
+	singleValues := make(map[int]bool)
+
+	for _, l := range lhsRanges {
+		for _, r := range rhsRanges {
+			if l.Min() == l.Max() {
+				if r.Min() == r.Max() {
+					value, err := computeSingleValue(l.Min(), r.Min())
+					if err == nil {
+						singleValues[value] = true
+					}
+				} else {
+					value, err := computeSingleLhsValue(l.Min(), r)
+					if err == nil {
+						rawRanges = append(rawRanges, value.Split()...)
+					}
+				}
+			} else {
+				if r.Min() == r.Max() {
+					value, err := computeSingleRhsValue(l, r.Min())
+					if err == nil {
+						rawRanges = append(rawRanges, value.Split()...)
+					}
+				} else {
+					value, err := compute(l, r)
+					if err == nil {
+						rawRanges = append(rawRanges, value.Split()...)
+					}
+				}
+			}
+		}
+	}
+
+	resultRanges := make([]ContinuousRange, 0)
+
+	for _, r := range rawRanges {
+		if r.Length() < 1000 {
+			next := r.Values("buildBinaryExpressionRange")
+			for value, ok := next(); ok; value, ok = next() {
+				singleValues[value] = true
+			}
+		} else {
+			resultRanges = append(resultRanges, r)
+		}
+	}
+
+	if len(singleValues) > 0 {
+		resultRanges = append(resultRanges, newRangeFromInts(singleValues).Split()...)
+	}
+
+	e.cachedRange = NewContinuousRangeSet(resultRanges)
+	return e.cachedRange
+}
+
 func evaluateBinaryExpression(e BinaryExpression, op func(lhs, rhs int) (int, error)) (int, error) {
 	switch x := e.(type) {
 	case *AddExpression:

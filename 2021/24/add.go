@@ -47,66 +47,23 @@ func (e *AddExpression) Evaluate() (int, error) {
 }
 
 func (e *AddExpression) Range() Range {
+	return buildBinaryExpressionRange(
+		"AddExpression",
+		&e.binaryExpression,
+		func(lhs, rhs int) (int, error) {
+			return lhs + rhs, nil
+		},
+		func(lhs int, rhs ContinuousRange) (Range, error) {
+			return newContinuousRange(
+				rhs.Min()+lhs,
+				rhs.Max()+lhs,
+				rhs.Step(),
+			), nil
+		},
+		nil,
+		nil,
+	)
 
-	if e.cachedRange != nil {
-		return e.cachedRange
-	}
-
-	lhsRange := e.Lhs().Range()
-	rhsRange := e.Rhs().Range()
-
-	lhsContinuous, lhsIsContinuous := lhsRange.(*continuousRange)
-	rhsContinuous, rhsIsContinuous := rhsRange.(*continuousRange)
-
-	if lhsIsContinuous && rhsIsContinuous {
-
-		// When both steps are 1, we are keeping a continuous range
-		if lhsContinuous.step == 1 && rhsContinuous.step == 1 {
-			e.cachedRange = newContinuousRange(
-				lhsContinuous.min+rhsContinuous.min,
-				lhsContinuous.max+rhsContinuous.max,
-				rhsContinuous.step,
-			)
-		}
-
-		// If either is a single value, then that just moves the other
-		if lhsContinuous.min == lhsContinuous.max {
-			e.cachedRange = newContinuousRange(
-				rhsContinuous.min+lhsContinuous.min,
-				rhsContinuous.max+lhsContinuous.min,
-				rhsContinuous.step,
-			)
-		} else if rhsContinuous.min == rhsContinuous.max {
-			e.cachedRange = newContinuousRange(
-				lhsContinuous.min+rhsContinuous.min,
-				lhsContinuous.max+rhsContinuous.min,
-				lhsContinuous.step,
-			)
-		}
-
-		// If both are using the same step AND they're aligned (a value on either would appear on the other
-		// when not considering min/max), then we can just add them directly
-		if lhsContinuous.step == rhsContinuous.step {
-			aligned := (rhsContinuous.min-lhsContinuous.min)%lhsContinuous.step == 0
-			if aligned {
-				e.cachedRange = newContinuousRange(
-					lhsContinuous.min+rhsContinuous.min,
-					lhsContinuous.max+rhsContinuous.max,
-					lhsContinuous.step,
-				)
-			}
-		}
-
-	}
-
-	if e.cachedRange == nil {
-		e.cachedRange = &sumRange{
-			lhs: lhsRange,
-			rhs: rhsRange,
-		}
-	}
-
-	return e.cachedRange
 }
 
 func (e *AddExpression) Simplify(inputs []int) Expression {
@@ -252,57 +209,4 @@ func tryCombineSummedInputs(expressions []Expression) []Expression {
 	}
 
 	return result
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// sumRange
-
-func (r *sumRange) Includes(value int) bool {
-
-	lhsBounded, lhsIsBounded := r.lhs.(BoundedRange)
-	rhsBounded, rhsIsBounded := r.rhs.(BoundedRange)
-
-	if lhsIsBounded && rhsIsBounded {
-		inBounds := (value >= lhsBounded.Min()+rhsBounded.Min()) && (value <= lhsBounded.Max()+rhsBounded.Max())
-		if !inBounds {
-			return false
-		}
-	}
-
-	next := r.Values(fmt.Sprintf("%s includes %d", r, value))
-	for v, ok := next(); ok; v, ok = next() {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *sumRange) String() string {
-	return fmt.Sprintf("<%s + %s>", r.lhs.String(), r.rhs.String())
-}
-
-func (r *sumRange) Values(context string) func() (int, bool) {
-
-	pos := 0
-
-	return func() (int, bool) {
-		if r.cachedValues == nil {
-			r.cachedValues = buildBinaryExpressionRangeValues(
-				r.lhs,
-				r.rhs,
-				func(lhsValue, rhsValue int) int { return lhsValue + rhsValue },
-				context,
-			)
-		}
-
-		if pos >= len(*r.cachedValues) {
-			return 0, false
-		}
-
-		value := (*r.cachedValues)[pos]
-		pos++
-
-		return value, true
-	}
 }

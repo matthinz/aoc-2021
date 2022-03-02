@@ -9,11 +9,8 @@ func (r *emptyRange) Includes(value int) bool {
 	return false
 }
 
-// Splits this range around <around>. Returns 3 new Ranges representing
-// the portion of the range less than <around>, <around> itself, and the
-// portion of the range greater than <around>.
-func (r *emptyRange) Split(around Range) (Range, Range, Range) {
-	return nil, nil, nil
+func (r *emptyRange) Split() []ContinuousRange {
+	return []ContinuousRange{}
 }
 
 func (r *emptyRange) String() string {

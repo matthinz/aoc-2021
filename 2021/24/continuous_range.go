@@ -9,15 +9,31 @@ type continuousRange struct {
 	step     int
 }
 
-func newContinuousRange(min, max, step int) *continuousRange {
+var ZeroContinuousRange = continuousRange{0, 0, 1}
+
+var OneContinuousRange = continuousRange{1, 1, 1}
+
+type ContinuousRange interface {
+	Range
+	Length() int
+	Min() int
+	Max() int
+	Step() int
+}
+
+func newContinuousRange(min, max, step int) ContinuousRange {
 	if max < min {
 		temp := max
 		max = min
 		min = temp
 	}
 
-	if step == 0 {
-		panic("0 is not a valid step")
+	if min == 0 && max == 0 && step == 1 {
+		return &ZeroContinuousRange
+	}
+
+	if step <= 0 {
+		panic(fmt.Sprintf("Invalid step: %d", step))
 	}
 
 	if (max-min)%step != 0 {
@@ -60,12 +76,24 @@ func (r *continuousRange) Intersects(other *continuousRange) bool {
 	return false
 }
 
+func (r *continuousRange) Length() int {
+	return (r.max - r.min) / r.step
+}
+
 func (r *continuousRange) Min() int {
 	return r.min
 }
 
 func (r *continuousRange) Max() int {
 	return r.max
+}
+
+func (r *continuousRange) Split() []ContinuousRange {
+	return []ContinuousRange{r}
+}
+
+func (r *continuousRange) Step() int {
+	return r.step
 }
 
 func (r *continuousRange) String() string {
