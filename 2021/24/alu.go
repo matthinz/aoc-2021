@@ -37,5 +37,20 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 }
 
 func Puzzle2(r io.Reader, l *log.Logger) string {
-	return ""
+	l.Printf("parsing...")
+	reg := parseInput(r)
+	l.Printf("parse completed")
+
+	inputs, err := SolveForSmallest(reg.z, 0, l)
+
+	if err != nil {
+		panic(err)
+	}
+
+	result := ""
+	for i := 0; i < 14; i++ {
+		result += strconv.Itoa(inputs[i])
+	}
+
+	return result
 }

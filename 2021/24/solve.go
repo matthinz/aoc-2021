@@ -10,7 +10,29 @@ import (
 func SolveForLargest(expr Expression, target int, l *log.Logger) ([]int, error) {
 	initialInputs := []int{}
 
-	inputs, err := solveStep(expr, target, initialInputs, 0, countInputs(expr), l)
+	inputs, err := solveStep(expr, target, initialInputs, 0, countInputs(expr), MaxInputValue, MinInputValue, -1, l)
+
+	if err != nil {
+		return []int{}, err
+	}
+
+	simplified := expr.Simplify(inputs)
+	value, err := simplified.Evaluate()
+	if err != nil {
+		return []int{}, err
+	}
+
+	if value != target {
+		return inputs, fmt.Errorf("Inputs did not evaluate to %d with initial expression (got %d)", target, value)
+	}
+
+	return inputs, nil
+}
+
+func SolveForSmallest(expr Expression, target int, l *log.Logger) ([]int, error) {
+	initialInputs := []int{2}
+
+	inputs, err := solveStep(expr, target, initialInputs, 0, countInputs(expr), MinInputValue, MaxInputValue, 1, l)
 
 	if err != nil {
 		return []int{}, err
@@ -39,7 +61,7 @@ func countInputs(expr Expression) int {
 	return len(inputCounts)
 }
 
-func solveStep(expr Expression, target int, inputs []int, index int, inputCount int, l *log.Logger) ([]int, error) {
+func solveStep(expr Expression, target int, inputs []int, index int, inputCount int, inputStartValue, inputEndValue, inputStep int, l *log.Logger) ([]int, error) {
 
 	if len(inputs) >= inputCount {
 		return inputs, nil
@@ -57,10 +79,10 @@ func solveStep(expr Expression, target int, inputs []int, index int, inputCount 
 	if IsValidInputValue(nextInputs[index]) {
 		initialValue = nextInputs[index]
 	} else {
-		initialValue = MaxInputValue
+		initialValue = inputStartValue
 	}
 
-	for i := initialValue; i >= MinInputValue; i-- {
+	for i := initialValue; IsValidInputValue(i); i += inputStep {
 		nextInputs[index] = i
 
 		values := nextInputs[0 : index+1]
@@ -70,10 +92,6 @@ func solveStep(expr Expression, target int, inputs []int, index int, inputCount 
 		afterCount := countExpressions(simplified)
 
 		l.Printf("trying %v (simplified %d%% from %d to %d nodes)", values, int((float64(beforeCount-afterCount)/float64(beforeCount))*-100), beforeCount, afterCount)
-
-		if afterCount < 50 {
-			l.Print(simplified.String())
-		}
 
 		r := simplified.Range()
 
@@ -85,7 +103,7 @@ func solveStep(expr Expression, target int, inputs []int, index int, inputCount 
 				return values, nil
 			}
 
-			result, err := solveStep(simplified, target, nextInputs, index+1, inputCount, l)
+			result, err := solveStep(simplified, target, nextInputs, index+1, inputCount, inputStartValue, inputEndValue, inputStep, l)
 
 			if err == nil {
 				return result, nil
