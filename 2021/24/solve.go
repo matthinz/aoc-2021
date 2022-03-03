@@ -7,8 +7,8 @@ import (
 
 // Attempts to solve the given expression, returning a map of input indices to
 // input values required for `expr` to evaluate to `target`.
-func Solve(expr Expression, target int, l *log.Logger) ([]int, error) {
-	initialInputs := []int{9}
+func SolveForLargest(expr Expression, target int, l *log.Logger) ([]int, error) {
+	initialInputs := []int{}
 
 	inputs, err := solveStep(expr, target, initialInputs, 0, countInputs(expr), l)
 
@@ -26,14 +26,7 @@ func Solve(expr Expression, target int, l *log.Logger) ([]int, error) {
 		return inputs, fmt.Errorf("Inputs did not evaluate to %d with initial expression (got %d)", target, value)
 	}
 
-	// Now we want to count _up_  to try and
-	ch := solveUp(expr, target, inputs, l)
-	var solution []int
-	for solution = range ch {
-		l.Print(solution)
-	}
-
-	return solution, nil
+	return inputs, nil
 }
 
 func countInputs(expr Expression) int {
@@ -72,25 +65,19 @@ func solveStep(expr Expression, target int, inputs []int, index int, inputCount 
 
 		values := nextInputs[0 : index+1]
 
-		l.Printf("trying %v", values)
-
 		beforeCount := countExpressions(expr)
 		simplified := expr.Simplify(values)
 		afterCount := countExpressions(simplified)
 
-		l.Printf("Simplified from %d -> %d (%d%%)", beforeCount, afterCount, int((float64(beforeCount-afterCount)/float64(beforeCount))*-100))
+		l.Printf("trying %v (simplified %d%% from %d to %d nodes)", values, int((float64(beforeCount-afterCount)/float64(beforeCount))*-100), beforeCount, afterCount)
 
 		if afterCount < 50 {
-			l.Printf(simplified.String())
+			l.Print(simplified.String())
 		}
 
 		r := simplified.Range()
 
-		l.Printf("range is now %s", r)
-
 		if r.Includes(target) {
-
-			fmt.Println(values)
 
 			value, err := simplified.Evaluate()
 
@@ -103,8 +90,6 @@ func solveStep(expr Expression, target int, inputs []int, index int, inputCount 
 			if err == nil {
 				return result, nil
 			}
-		} else {
-			l.Printf("range does not include %d", target)
 		}
 	}
 
@@ -117,38 +102,4 @@ func countExpressions(expr Expression) int {
 		count++
 	})
 	return count
-}
-
-func solveUp(expr Expression, target int, inputs []int, l *log.Logger) chan []int {
-	ch := make(chan []int)
-
-	go func() {
-		defer close(ch)
-
-		index := len(inputs) - 1
-		for {
-
-			for inputs[index] >= MaxInputValue && index >= 0 {
-				index--
-			}
-
-			if index < 0 {
-				break
-			}
-
-			inputs[index]++
-
-			simplified := expr.Simplify(inputs)
-			result, err := simplified.Evaluate()
-
-			if err == nil && result == target {
-				inputCopy := make([]int, len(inputs))
-				copy(inputCopy, inputs)
-				ch <- inputCopy
-			}
-		}
-
-	}()
-
-	return ch
 }

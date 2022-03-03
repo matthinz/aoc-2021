@@ -120,30 +120,17 @@ func (e *ModuloExpression) Simplify(inputs []int) Expression {
 		&e.binaryExpression,
 		inputs,
 		func(lhs, rhs Expression) Expression {
-			lhsRange := lhs.Range()
-			rhsRange := rhs.Range()
 
-			lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
-			rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
+			lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
+			rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
 
-			if rhsIsSingleValue && rhsSingleValue == 0 {
-				// TODO: This is invalid
+			if lhsIsLiteral && rhsIsLiteral {
+				return NewLiteralExpression(lhsLiteral.value % rhsLiteral.value)
+			} else if lhsIsLiteral && lhsLiteral.value == 0 {
+				return NewLiteralExpression(0)
+			} else {
 				return NewModuloExpression(lhs, rhs)
 			}
-
-			// If lhs is 0, we can resolve to zero
-			if lhsIsSingleValue && lhsSingleValue == 0 {
-				return zeroLiteral
-			}
-
-			// If both ranges are single numbers, we can simplify to a literal
-			if lhsIsSingleValue && rhsIsSingleValue {
-				return NewLiteralExpression(lhsSingleValue % rhsSingleValue)
-			}
-
-			// TODO: If lhs is 1 number and *less than* the rhs range, we can eval to a literal
-
-			return NewModuloExpression(lhs, rhs)
 		},
 	)
 }

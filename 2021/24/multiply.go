@@ -74,35 +74,22 @@ func (e *MultiplyExpression) Simplify(inputs []int) Expression {
 		&e.binaryExpression,
 		inputs,
 		func(lhs Expression, rhs Expression) Expression {
-			lhsRange, rhsRange := lhs.Range(), rhs.Range()
+			lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
+			rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
 
-			lhsSingleValue, lhsIsSingleValue := GetSingleValueOfRange(lhsRange)
-			rhsSingleValue, rhsIsSingleValue := GetSingleValueOfRange(rhsRange)
-
-			// if both ranges are single numbers, we are doing literal multiplication
-			if lhsIsSingleValue && rhsIsSingleValue {
-				return NewLiteralExpression(lhsSingleValue * rhsSingleValue)
-			}
-
-			// if either range is just "0", we'll evaluate to 0
-			if lhsIsSingleValue && lhsSingleValue == 0 {
-				return zeroLiteral
-			}
-
-			if rhsIsSingleValue && rhsSingleValue == 0 {
-				return zeroLiteral
-			}
-
-			// if either range is just "1", we evaluate to the other
-			if lhsIsSingleValue && lhsSingleValue == 1 {
+			if lhsIsLiteral && rhsIsLiteral {
+				return NewLiteralExpression(lhsLiteral.value * rhsLiteral.value)
+			} else if lhsIsLiteral && lhsLiteral.value == 0 {
+				return NewLiteralExpression(0)
+			} else if lhsIsLiteral && lhsLiteral.value == 1 {
 				return rhs
-			}
-
-			if rhsIsSingleValue && rhsSingleValue == 1 {
+			} else if rhsIsLiteral && rhsLiteral.value == 0 {
+				return NewLiteralExpression(0)
+			} else if rhsIsLiteral && rhsLiteral.value == 1 {
 				return lhs
+			} else {
+				return NewMultiplyExpression(lhs, rhs)
 			}
-
-			return NewMultiplyExpression(lhs, rhs)
 		},
 	)
 }

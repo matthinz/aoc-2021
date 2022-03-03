@@ -8,11 +8,17 @@ type LiteralExpression struct {
 	value int
 }
 
-var zeroLiteral = NewLiteralExpression(0)
-var oneLiteral = NewLiteralExpression(1)
+var zeroLiteral = &LiteralExpression{0}
+var oneLiteral = &LiteralExpression{1}
 
 func NewLiteralExpression(value int) Expression {
-	return &LiteralExpression{value}
+	if value == 0 {
+		return zeroLiteral
+	} else if value == 1 {
+		return oneLiteral
+	} else {
+		return &LiteralExpression{value}
+	}
 }
 
 func (e *LiteralExpression) Accept(visitor func(e Expression)) {

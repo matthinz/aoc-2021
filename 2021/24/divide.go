@@ -122,6 +122,15 @@ func (e *DivideExpression) Simplify(inputs []int) Expression {
 				}
 			}
 
+			// if dividend is completely less than the divisor, this expression will always evaluate to "0"
+			dividendBounded, dividendIsBounded := dividendRange.(BoundedRange)
+			divisorBounded, divisorIsBounded := divisorRange.(BoundedRange)
+			if dividendIsBounded && divisorIsBounded {
+				if dividendBounded.Max() < divisorBounded.Min() {
+					return NewLiteralExpression(0)
+				}
+			}
+
 			// Two literals mean we can just do the division
 			literalDividend, dividendIsLiteral := dividend.(*LiteralExpression)
 			if dividendIsLiteral {

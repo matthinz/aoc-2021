@@ -331,7 +331,7 @@ func buildBinaryExpressionRange(
 	resultRanges := make([]ContinuousRange, 0)
 
 	for _, r := range rawRanges {
-		if r.Length() < 1000 {
+		if r.Length() < 10000000 {
 			next := r.Values("buildBinaryExpressionRange")
 			for value, ok := next(); ok; value, ok = next() {
 				singleValues[value] = true

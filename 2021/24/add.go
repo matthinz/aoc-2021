@@ -71,36 +71,18 @@ func (e *AddExpression) Simplify(inputs []int) Expression {
 		&e.binaryExpression,
 		inputs,
 		func(lhs, rhs Expression) Expression {
-			literal, inputs, other := unrollAddExpressions(lhs, rhs)
 
-			var result Expression
+			lhsLiteral, lhsIsLiteral := lhs.(*LiteralExpression)
+			rhsLiteral, rhsIsLiteral := rhs.(*LiteralExpression)
 
-			for _, expr := range combineInputs(inputs...) {
-				if result == nil {
-					result = expr
-				} else if expr != nil {
-					result = NewAddExpression(result, expr)
-				}
-			}
-
-			if result == nil {
-				result = other
-			} else if other != nil {
-				result = NewAddExpression(result, other)
-			}
-
-			if literal != nil && literal.value != 0 {
-				if result == nil {
-					result = literal
-				} else if literal != nil {
-					result = NewAddExpression(result, literal)
-				}
-			}
-
-			if result == nil {
-				return NewLiteralExpression(0)
+			if lhsIsLiteral && rhsIsLiteral {
+				return NewLiteralExpression(lhsLiteral.value + rhsLiteral.value)
+			} else if lhsIsLiteral && lhsLiteral.value == 0 {
+				return rhs
+			} else if rhsIsLiteral && rhsLiteral.value == 0 {
+				return lhs
 			} else {
-				return result
+				return NewAddExpression(lhs, rhs)
 			}
 		},
 	)
@@ -167,46 +149,4 @@ func unrollAddExpressions(expressions ...Expression) (*LiteralExpression, []*Inp
 	}
 
 	return result.literal, result.inputs, result.other
-}
-
-func tryCombineSummedInputs(expressions []Expression) []Expression {
-	result := make([]Expression, 0, len(expressions))
-
-	for i := range expressions {
-		if expressions[i] == nil {
-			continue
-		}
-
-		iInput, iIsInput := expressions[i].(*InputExpression)
-		if !iIsInput {
-			continue
-		}
-
-		multiple := 1
-
-		for j := range expressions[i+1:] {
-			if expressions[j] == nil {
-				continue
-			}
-
-			jInput, jIsInput := expressions[j].(*InputExpression)
-			if !jIsInput {
-				continue
-			}
-
-			if iInput.index == jInput.index {
-				// these two inputs can be combined
-				multiple++
-				expressions[j] = nil
-			}
-		}
-
-		if multiple > 1 {
-			result = append(result, NewMultiplyExpression(iInput, NewLiteralExpression(multiple)))
-		} else {
-			result = append(result, iInput)
-		}
-	}
-
-	return result
 }

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"io"
 	"log"
+	"strconv"
 
 	"github.com/matthinz/aoc-golang"
 )
@@ -21,15 +22,18 @@ func Puzzle1(r io.Reader, l *log.Logger) string {
 	reg := parseInput(r)
 	l.Printf("parse completed")
 
-	inputs, err := Solve(reg.z, 0, l)
+	inputs, err := SolveForLargest(reg.z, 0, l)
 
 	if err != nil {
 		panic(err)
 	}
 
-	l.Print(inputs)
+	result := ""
+	for i := 0; i < 14; i++ {
+		result += strconv.Itoa(inputs[i])
+	}
 
-	return ""
+	return result
 }
 
 func Puzzle2(r io.Reader, l *log.Logger) string {

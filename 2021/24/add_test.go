@@ -129,39 +129,6 @@ func TestAddExpressionSimplify(t *testing.T) {
 			rhs:      NewLiteralExpression(0),
 			expected: NewLiteralExpression(8),
 		},
-		{
-			name: "CombineLiteralsWhenAddingTwoSums",
-			lhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(5)),
-			rhs:  NewAddExpression(NewInputExpression(1), NewLiteralExpression(7)),
-			expected: NewAddExpression(
-				NewAddExpression(NewInputExpression(0), NewInputExpression(1)),
-				NewLiteralExpression(12),
-			),
-		},
-		{
-			name: "CombineLiteralsWhenAddingThreeSums",
-			lhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(5)),
-			rhs:  NewAddExpression(NewInputExpression(1), NewAddExpression(NewInputExpression(2), NewLiteralExpression(7))),
-			expected: NewAddExpression(
-				NewAddExpression(NewAddExpression(NewInputExpression(0), NewInputExpression(1)), NewInputExpression(2)),
-				NewLiteralExpression(12),
-			),
-		},
-		{
-			name:     "ConvertSumOfSameInputToMultiplication",
-			lhs:      NewInputExpression(0),
-			rhs:      NewInputExpression(0),
-			expected: NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(2)),
-		},
-		{
-			name: "ConvertSumOfSameInputToMultiplicationDeep",
-			lhs:  NewInputExpression(0),
-			rhs:  NewAddExpression(NewInputExpression(0), NewLiteralExpression(8)),
-			expected: NewAddExpression(
-				NewMultiplyExpression(NewInputExpression(0), NewLiteralExpression(2)),
-				NewLiteralExpression(8),
-			),
-		},
 	}
 
 	for _, test := range tests {

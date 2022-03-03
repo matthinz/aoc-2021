@@ -66,19 +66,19 @@ func (e *EqualsExpression) Simplify(inputs []int) Expression {
 				}
 			}
 
-			// if lhs, lhsIsBounded := lhs.Range().(BoundedRange); lhsIsBounded {
-			// 	if rhs, rhsIsBounded := rhs.Range().(BoundedRange); rhsIsBounded {
+			if lhs, lhsIsBounded := lhs.Range().(BoundedRange); lhsIsBounded {
+				if rhs, rhsIsBounded := rhs.Range().(BoundedRange); rhsIsBounded {
 
-			// 		rangesCouldIntersect := ((lhs.Min() >= rhs.Min() && lhs.Min() <= rhs.Max()) ||
-			// 			(lhs.Max() >= rhs.Min() && lhs.Max() <= rhs.Max()) ||
-			// 			(rhs.Min() >= lhs.Min() && rhs.Min() <= lhs.Max()) ||
-			// 			(rhs.Max() >= lhs.Min() && rhs.Max() <= lhs.Max()))
+					rangesCouldIntersect := ((lhs.Min() >= rhs.Min() && lhs.Min() <= rhs.Max()) ||
+						(lhs.Max() >= rhs.Min() && lhs.Max() <= rhs.Max()) ||
+						(rhs.Min() >= lhs.Min() && rhs.Min() <= lhs.Max()) ||
+						(rhs.Max() >= lhs.Min() && rhs.Max() <= lhs.Max()))
 
-			// 		if !rangesCouldIntersect {
-			// 			return NewLiteralExpression(0)
-			// 		}
-			// 	}
-			// }
+					if !rangesCouldIntersect {
+						return NewLiteralExpression(0)
+					}
+				}
+			}
 
 			return NewEqualsExpression(lhs, rhs)
 		},
