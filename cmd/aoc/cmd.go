@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/matthinz/aoc-golang"
+	y2020 "github.com/matthinz/aoc-golang/2020"
 	y2021 "github.com/matthinz/aoc-golang/2021"
 )
 
@@ -15,6 +16,7 @@ const FirstYear = 2015
 const MaxDays = 25
 
 var AllYears = map[int]func() aoc.Year{
+	2020: y2020.New,
 	2021: y2021.New,
 }
 
